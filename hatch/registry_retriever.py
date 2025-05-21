@@ -70,8 +70,8 @@ class RegistryRetriever:
         try:
             with open(self.registry_cache_path, 'r') as f:
                 return json.load(f)
-        except (json.JSONDecodeError, FileNotFoundError) as e:
-            self.logger.error(f"Failed to read local cache: {e}")
+        except Exception as e:
+            self.logger.error(f"Failed to read local registry file: {e}")
             raise e
     
     def _write_local_cache(self, registry_data: Dict[str, Any]) -> None:
@@ -81,16 +81,6 @@ class RegistryRetriever:
                 json.dump(registry_data, f, indent=2)
         except Exception as e:
             self.logger.error(f"Failed to write local cache: {e}")
-    
-    def _fetch_local_registry(self) -> Dict[str, Any]:
-        """Fetch registry data from local file (simulation mode)"""
-        try:
-            with open(self.registry_cache_path, 'r') as f:
-                registry_data = json.load(f)
-                return registry_data
-        except Exception as e:
-            self.logger.error(f"Failed to read local registry file: {e}")
-            raise e
     
     def _fetch_remote_registry(self) -> Dict[str, Any]:
         """Fetch registry data from remote URL (online mode)"""
@@ -136,7 +126,7 @@ class RegistryRetriever:
         # Fetch from source based on mode
         try:
             if self.simulation_mode:
-                registry_data = self._fetch_local_registry()
+                registry_data = self._read_local_cache()
             else:
                 registry_data = self._fetch_remote_registry()
             
