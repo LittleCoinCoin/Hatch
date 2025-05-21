@@ -6,13 +6,7 @@ from pathlib import Path
 import template_generator as tg
 from package_environments import HatchEnvironmentManager
 from registry_retriever import RegistryRetriever
-
-# Add Validator to path
-parent_dir = str(Path(__file__).parent.parent/"Hatch-Validator")
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
-
-from package_validator import HatchPackageValidator
+from hatch_validator import HatchPackageValidator
 
 class HatchPackageManager:
     def __init__(self, registry_path=None):
