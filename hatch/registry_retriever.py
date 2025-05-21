@@ -133,7 +133,7 @@ class RegistryRetriever:
             }
         }
     
-    def fetch_registry(self, force_refresh: bool = False) -> Dict[str, Any]:
+    def get_registry(self, force_refresh: bool = False) -> Dict[str, Any]:
         """
         Fetch the registry file.
         
@@ -190,15 +190,6 @@ class RegistryRetriever:
             # Return empty registry as last resort
             return self._get_empty_registry()
     
-    def get_registry(self) -> Dict[str, Any]:
-        """
-        Get the registry data, preferably from cache.
-        
-        Returns:
-            Dict containing the registry data
-        """
-        return self.fetch_registry(force_refresh=False)
-    
     def invalidate_cache(self) -> None:
         """Invalidate both the local file cache and in-memory cache."""
         self._registry_cache = None
@@ -211,7 +202,7 @@ class RegistryRetriever:
             except Exception as e:
                 self.logger.error(f"Failed to remove cache file: {e}")
 
-    def get_registry_metadata(self) -> Dict[str, Any]:
+    def fetch_registry_metadata(self) -> Dict[str, Any]:
         """
         Get lightweight metadata about the registry without downloading the entire registry.
         This can be used to check if a local cache is outdated.
@@ -283,7 +274,7 @@ class RegistryRetriever:
             
         try:
             # Get metadata about the source registry
-            source_meta = self.get_registry_metadata()
+            source_meta = self.fetch_registry_metadata()
             source_last_updated = source_meta.get("last_updated")
             
             if not source_last_updated:
