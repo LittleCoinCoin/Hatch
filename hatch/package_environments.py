@@ -4,8 +4,7 @@ import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 
-# Fix import path to include the full module path
-from Hatch.package_loader import HatchPackageLoader
+from .package_loader import HatchPackageLoader
 
 class HatchEnvironmentError(Exception):
     """Exception raised for environment management errors."""
