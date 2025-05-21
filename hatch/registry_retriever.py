@@ -19,7 +19,7 @@ class RegistryRetriever:
     
     def __init__(
         self, 
-        cache_ttl: int = 3600,  # 1 hour cache TTL by default
+        cache_ttl: int = 86400,  # Default TTL is 24 hours
         local_cache_dir: Optional[Path] = None,
         simulation_mode: bool = False,  # Set to True when running in local simulation mode
         local_registry_cache_path: Optional[Path] = None
@@ -64,18 +64,6 @@ class RegistryRetriever:
         # In-memory cache
         self._registry_cache = None
         self._last_fetch_time = 0
-    
-    def _is_cache_valid(self) -> bool:
-        """Check if the local cache file is valid and not expired."""
-        if not self.registry_cache_path.exists():
-            return False
-            
-        # Check file modification time
-        mtime = self.registry_cache_path.stat().st_mtime
-        if time.time() - mtime > self.cache_ttl:
-            return False
-            
-        return True
     
     def _read_local_cache(self) -> Dict[str, Any]:
         """Read the registry from local cache file."""
@@ -152,8 +140,8 @@ class RegistryRetriever:
             self.logger.debug("Using in-memory cache")
             return self._registry_cache
             
-        # Check if local cache is valid
-        if not force_refresh and self._is_cache_valid():
+        # Check if local cache is not outdated and
+        if not force_refresh and not self.is_cache_outdated():
             self.logger.debug("Using local cache file")
             registry_data = self._read_local_cache()
             
@@ -171,6 +159,8 @@ class RegistryRetriever:
                 registry_data = self._fetch_remote_registry()
             
             # Update local cache
+            # Note that in case of simulation mode AND default cache path,
+            # we are rewriting the same file with the same content
             self._write_local_cache(registry_data)
             
             # Update in-memory cache
@@ -181,14 +171,7 @@ class RegistryRetriever:
             
         except Exception as e:
             self.logger.error(f"Failed to fetch registry: {e}")
-            
-            # Fallback to local cache if it exists
-            if self.registry_cache_path.exists():
-                self.logger.warning("Falling back to local cache")
-                return self._read_local_cache()
-                
-            # Return empty registry as last resort
-            return self._get_empty_registry()
+            raise e
     
     def invalidate_cache(self) -> None:
         """Invalidate both the local file cache and in-memory cache."""
@@ -201,114 +184,28 @@ class RegistryRetriever:
                 self.logger.debug("Cache file removed")
             except Exception as e:
                 self.logger.error(f"Failed to remove cache file: {e}")
-
-    def fetch_registry_metadata(self) -> Dict[str, Any]:
-        """
-        Get lightweight metadata about the registry without downloading the entire registry.
-        This can be used to check if a local cache is outdated.
-        
-        Returns:
-            Dict with metadata including:
-                - last_updated: timestamp of last registry update
-                - version: registry schema version
-                - stats: registry statistics
-        """
-        if self.simulation_mode:
-            # In simulation mode, just read the metadata from the local file
-            try:
-                with open(self.registry_cache_path, 'r') as f:
-                    data = json.load(f)
-                    return {
-                        "last_updated": data.get("last_updated"),
-                        "version": data.get("registry_schema_version", "1.0.0"),
-                        "stats": data.get("stats", {})
-                    }
-            except Exception as e:
-                self.logger.error(f"Failed to read registry metadata: {e}")
-                return {
-                    "last_updated": None,
-                    "version": None,
-                    "stats": {}
-                }
-        else:
-            # In online mode, try to fetch only the metadata via HEAD request
-            try:
-                response = requests.head(self.registry_url, timeout=10)
-                
-                # Check if the server provides a last-modified header
-                last_modified = response.headers.get('Last-Modified')
-                
-                if last_modified:
-                    return {
-                        "last_updated": last_modified,
-                        "version": None,  # Can't get this from headers
-                        "stats": {}       # Can't get this from headers
-                    }
-                else:
-                    # If no last-modified header, we'll have to fetch the whole registry
-                    # but just return the metadata fields
-                    registry = self.get_registry()
-                    return {
-                        "last_updated": registry.get("last_updated"),
-                        "version": registry.get("registry_schema_version"),
-                        "stats": registry.get("stats", {})
-                    }
-            except Exception as e:
-                self.logger.error(f"Failed to fetch registry metadata: {e}")
-                return {
-                    "last_updated": None,
-                    "version": None,
-                    "stats": {}
-                }
     
     def is_cache_outdated(self) -> bool:
         """
-        Check if the cached registry is outdated compared to the remote/source registry.
+        Check if the cached registry is outdated (not from today's UTC date).
         
         Returns:
-            bool: True if cache is outdated or couldn't be checked, False if cache is current
+            bool: True if cache is outdated, False if cache is current
         """
-        # If cache doesn't exist, it's outdated
-        if not self._is_cache_valid():
-            return True
-            
-        try:
-            # Get metadata about the source registry
-            source_meta = self.fetch_registry_metadata()
-            source_last_updated = source_meta.get("last_updated")
-            
-            if not source_last_updated:
-                # If we couldn't get the source last updated time, assume outdated
-                return True
-                
-            # Load cache metadata
-            cache_data = self._read_local_cache()
-            cache_last_updated = cache_data.get("last_updated")
-            
-            if not cache_last_updated:
-                return True
-                
-            # Parse timestamps and compare
-            try:
-                # Handle different timestamp formats
-                if 'T' in source_last_updated:
-                    source_time = datetime.datetime.fromisoformat(source_last_updated.replace('Z', '+00:00'))
-                else:
-                    source_time = datetime.datetime.strptime(source_last_updated, "%a, %d %b %Y %H:%M:%S %Z")
-                    
-                if 'T' in cache_last_updated:
-                    cache_time = datetime.datetime.fromisoformat(cache_last_updated.replace('Z', '+00:00'))
-                else:
-                    cache_time = datetime.datetime.strptime(cache_last_updated, "%a, %d %b %Y %H:%M:%S %Z")
-                
-                return source_time > cache_time
-            except (ValueError, TypeError) as e:
-                self.logger.warning(f"Error parsing timestamps: {e}")
-                return True  # Assume outdated if we can't parse dates
-                
-        except Exception as e:
-            self.logger.error(f"Error checking if cache is outdated: {e}")
-            return True  # Assume outdated on error
+        if not self.registry_cache_path.exists():
+            return False
+        
+        # Get today's date in UTC
+        today_utc = datetime.datetime.now(datetime.timezone.utc).date()
+        
+        # Get cache file's modification date in UTC
+        cache_mtime = datetime.datetime.fromtimestamp(
+            self.registry_cache_path.stat().st_mtime, 
+            tz=datetime.timezone.utc
+        ).date()
+        
+        # Cache is outdated if it's not from today
+        return cache_mtime < today_utc
 
 # Example usage
 if __name__ == "__main__":
