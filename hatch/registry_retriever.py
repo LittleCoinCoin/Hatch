@@ -155,18 +155,6 @@ class RegistryRetriever:
             self.logger.error(f"Failed to fetch registry: {e}")
             raise e
     
-    def invalidate_cache(self) -> None:
-        """Invalidate both the local file cache and in-memory cache."""
-        self._registry_cache = None
-        self._last_fetch_time = 0
-        
-        if self.registry_cache_path.exists():
-            try:
-                self.registry_cache_path.unlink()
-                self.logger.debug("Cache file removed")
-            except Exception as e:
-                self.logger.error(f"Failed to remove cache file: {e}")
-    
     def is_cache_outdated(self) -> bool:
         """
         Check if the cached registry is outdated (not from today's UTC date).
