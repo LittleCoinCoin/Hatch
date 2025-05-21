@@ -22,7 +22,7 @@ class RegistryRetriever:
         cache_ttl: int = 3600,  # 1 hour cache TTL by default
         local_cache_dir: Optional[Path] = None,
         simulation_mode: bool = False,  # Set to True when running in local simulation mode
-        local_registry_path: Optional[Path] = None
+        local_registry_cache_path: Optional[Path] = None
     ):
         """
         Initialize the registry retriever.
@@ -31,7 +31,7 @@ class RegistryRetriever:
             local_cache_dir: Directory to store local cache files (default: ~/.hatch, the registry will be in ~/.hatch/registry)
             cache_ttl: Time-to-live for cache in seconds
             simulation_mode: Whether to operate in local simulation mode. Can be useful during development or debugging.
-            local_registry_path: Path to local registry file (for simulation mode)
+            local_registry_cache_path: Path to local registry file (for simulation mode)
         """
         self.logger = logging.getLogger('hatch.registry_retriever')
         self.cache_ttl = cache_ttl
@@ -45,22 +45,17 @@ class RegistryRetriever:
 
         # Set up registry source based on mode
         if simulation_mode:
-            # Local simulation mode - use local file path
-            if local_registry_path is None:
-                # Default to Hatch-Registry location in the repository
-                self.local_registry_path = Path(__file__).parent.parent / "Hatch-Registry" / "hatch_packages_registry.json"
-            else:
-                self.local_registry_path = local_registry_path
+            # Local simulation mode - use local registry file
+            self.registry_cache_path = local_registry_cache_path or self.cache_dir / "registry" / "hatch_packages_registry.json"
                 
             # Use file:// URL format for local files
-            self.registry_url = f"file://{str(self.local_registry_path.absolute())}"
-            self.logger.info(f"Operating in simulation mode with registry at: {self.local_registry_path}")
+            self.registry_url = f"file://{str(self.registry_cache_path.absolute())}"
+            self.logger.info(f"Operating in simulation mode with registry at: {self.registry_cache_path}")
         else:
             # Online mode - use GitHub URL
             # get UTC date string for the registry
             ydm = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
             self.registry_url = f"https://github.com/CrackingShells/Hatch-Registry/releases/download/{ydm}/hatch_packages_registry.json"
-            self.local_registry_path = None
             self.logger.info(f"Operating in online mode with registry at: {self.registry_url}")
         
         # Generate cache filename based on URL hash
@@ -102,11 +97,11 @@ class RegistryRetriever:
     def _fetch_local_registry(self) -> Dict[str, Any]:
         """Fetch registry data from local file (simulation mode)"""
         try:
-            if not self.local_registry_path.exists():
-                self.logger.warning(f"Local registry file does not exist: {self.local_registry_path}")
+            if not self.registry_cache_path.exists():
+                self.logger.warning(f"Local registry file does not exist: {self.registry_cache_path}")
                 return self._get_empty_registry()
             
-            with open(self.local_registry_path, 'r') as f:
+            with open(self.registry_cache_path, 'r') as f:
                 registry_data = json.load(f)
                 return registry_data
         except Exception as e:
@@ -264,7 +259,7 @@ class RegistryRetriever:
         if self.simulation_mode:
             # In simulation mode, just read the metadata from the local file
             try:
-                with open(self.local_registry_path, 'r') as f:
+                with open(self.registry_cache_path, 'r') as f:
                     data = json.load(f)
                     return {
                         "last_updated": data.get("last_updated"),
