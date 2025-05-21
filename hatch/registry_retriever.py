@@ -64,7 +64,7 @@ class RegistryRetriever:
             self.logger.info(f"Operating in online mode with registry at: {self.registry_url}")
         
         # Generate cache filename based on URL hash
-        self.cache_file = self.cache_dir / "registry" / "hatch_packages_registry.json"
+        self.registry_cache_path = self.cache_dir / "registry" / "hatch_packages_registry.json"
         
         # In-memory cache
         self._registry_cache = None
@@ -72,11 +72,11 @@ class RegistryRetriever:
     
     def _is_cache_valid(self) -> bool:
         """Check if the local cache file is valid and not expired."""
-        if not self.cache_file.exists():
+        if not self.registry_cache_path.exists():
             return False
             
         # Check file modification time
-        mtime = self.cache_file.stat().st_mtime
+        mtime = self.registry_cache_path.stat().st_mtime
         if time.time() - mtime > self.cache_ttl:
             return False
             
@@ -85,7 +85,7 @@ class RegistryRetriever:
     def _read_local_cache(self) -> Dict[str, Any]:
         """Read the registry from local cache file."""
         try:
-            with open(self.cache_file, 'r') as f:
+            with open(self.registry_cache_path, 'r') as f:
                 return json.load(f)
         except (json.JSONDecodeError, FileNotFoundError) as e:
             self.logger.warning(f"Failed to read local cache: {e}")
@@ -94,7 +94,7 @@ class RegistryRetriever:
     def _write_local_cache(self, registry_data: Dict[str, Any]) -> None:
         """Write the registry data to local cache file."""
         try:
-            with open(self.cache_file, 'w') as f:
+            with open(self.registry_cache_path, 'w') as f:
                 json.dump(registry_data, f, indent=2)
         except Exception as e:
             self.logger.error(f"Failed to write local cache: {e}")
@@ -188,7 +188,7 @@ class RegistryRetriever:
             self.logger.error(f"Failed to fetch registry: {e}")
             
             # Fallback to local cache if it exists
-            if self.cache_file.exists():
+            if self.registry_cache_path.exists():
                 self.logger.warning("Falling back to local cache")
                 return self._read_local_cache()
                 
@@ -243,9 +243,9 @@ class RegistryRetriever:
         self._registry_cache = None
         self._last_fetch_time = 0
         
-        if self.cache_file.exists():
+        if self.registry_cache_path.exists():
             try:
-                self.cache_file.unlink()
+                self.registry_cache_path.unlink()
                 self.logger.debug("Cache file removed")
             except Exception as e:
                 self.logger.error(f"Failed to remove cache file: {e}")
