@@ -71,8 +71,8 @@ class RegistryRetriever:
             with open(self.registry_cache_path, 'r') as f:
                 return json.load(f)
         except (json.JSONDecodeError, FileNotFoundError) as e:
-            self.logger.warning(f"Failed to read local cache: {e}")
-            return {}
+            self.logger.error(f"Failed to read local cache: {e}")
+            raise e
     
     def _write_local_cache(self, registry_data: Dict[str, Any]) -> None:
         """Write the registry data to local cache file."""
@@ -85,16 +85,12 @@ class RegistryRetriever:
     def _fetch_local_registry(self) -> Dict[str, Any]:
         """Fetch registry data from local file (simulation mode)"""
         try:
-            if not self.registry_cache_path.exists():
-                self.logger.warning(f"Local registry file does not exist: {self.registry_cache_path}")
-                return self._get_empty_registry()
-            
             with open(self.registry_cache_path, 'r') as f:
                 registry_data = json.load(f)
                 return registry_data
         except Exception as e:
             self.logger.error(f"Failed to read local registry file: {e}")
-            return self._get_empty_registry()
+            raise e
     
     def _fetch_remote_registry(self) -> Dict[str, Any]:
         """Fetch registry data from remote URL (online mode)"""
@@ -105,21 +101,7 @@ class RegistryRetriever:
             return response.json()
         except Exception as e:
             self.logger.error(f"Failed to fetch remote registry: {e}")
-            return self._get_empty_registry()
-    
-    def _get_empty_registry(self) -> Dict[str, Any]:
-        """Return an empty registry template"""
-        return {
-            "registry_schema_version": "1.0.0",
-            "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "artifact_base_url": "https://artifacts.crackingshells.org/packages",
-            "repositories": [],
-            "stats": {
-                "total_packages": 0,
-                "total_versions": 0,
-                "total_artifacts": 0
-            }
-        }
+            raise e
     
     def get_registry(self, force_refresh: bool = False) -> Dict[str, Any]:
         """
@@ -131,7 +113,7 @@ class RegistryRetriever:
         Returns:
             Dict containing the registry data
         """
-        current_time = time.time()
+        current_time = datetime.datetime.now(datetime.timezone.utc).timestamp()
         
         # Check if in-memory cache is valid
         if (not force_refresh and 
