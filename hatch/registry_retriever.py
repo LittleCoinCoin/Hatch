@@ -19,28 +19,30 @@ class RegistryRetriever:
     
     def __init__(
         self, 
-        registry_url: str = None,
-        local_registry_path: Optional[Path] = None,
-        local_cache_dir: Optional[Path] = None,
         cache_ttl: int = 3600,  # 1 hour cache TTL by default
-        logger: Optional[logging.Logger] = None,
-        simulation_mode: bool = True  # Set to False in production environment
+        local_cache_dir: Optional[Path] = None,
+        simulation_mode: bool = False,  # Set to True when running in local simulation mode
+        local_registry_path: Optional[Path] = None
     ):
         """
         Initialize the registry retriever.
         
         Args:
-            registry_url: URL to the registry JSON file (for online mode)
-            local_registry_path: Path to local registry file (for simulation mode)
-            local_cache_dir: Directory to store local cache files (default: ~/.hatch/cache)
+            local_cache_dir: Directory to store local cache files (default: ~/.hatch, the registry will be in ~/.hatch/registry)
             cache_ttl: Time-to-live for cache in seconds
-            logger: Logger instance
-            simulation_mode: Whether to operate in local simulation mode
+            simulation_mode: Whether to operate in local simulation mode. Can be useful during development or debugging.
+            local_registry_path: Path to local registry file (for simulation mode)
         """
-        self.logger = logger or logging.getLogger('hatch.registry_retriever')
+        self.logger = logging.getLogger('hatch.registry_retriever')
         self.cache_ttl = cache_ttl
         self.simulation_mode = simulation_mode
         
+        # Initialize cache directory
+        self.cache_dir = local_cache_dir or Path.home() / ".hatch"
+        
+        # Create cache directory if it doesn't exist
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+
         # Set up registry source based on mode
         if simulation_mode:
             # Local simulation mode - use local file path
@@ -55,22 +57,14 @@ class RegistryRetriever:
             self.logger.info(f"Operating in simulation mode with registry at: {self.local_registry_path}")
         else:
             # Online mode - use GitHub URL
-            self.registry_url = registry_url or "https://github.com/CrackingShells/Hatch-Registry/raw/main/hatch_packages_registry.json"
+            # get UTC date string for the registry
+            ydm = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+            self.registry_url = f"https://github.com/CrackingShells/Hatch-Registry/releases/download/{ydm}/hatch_packages_registry.json"
             self.local_registry_path = None
             self.logger.info(f"Operating in online mode with registry at: {self.registry_url}")
         
-        # Initialize cache directory
-        if local_cache_dir is None:
-            self.cache_dir = Path.home() / '.hatch' / 'cache'
-        else:
-            self.cache_dir = local_cache_dir
-            
-        # Create cache directory if it doesn't exist
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        
         # Generate cache filename based on URL hash
-        url_hash = hashlib.md5(self.registry_url.encode()).hexdigest()
-        self.cache_file = self.cache_dir / f"registry_{url_hash}.json"
+        self.cache_file = self.cache_dir / "registry" / "hatch_packages_registry.json"
         
         # In-memory cache
         self._registry_cache = None
@@ -367,7 +361,6 @@ class RegistryRetriever:
 # Example usage
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    # Default is simulation mode (local files)
     retriever = RegistryRetriever()
     registry = retriever.get_registry()
     print(f"Found {len(registry.get('repositories', []))} repositories")
