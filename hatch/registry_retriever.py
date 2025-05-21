@@ -199,40 +199,6 @@ class RegistryRetriever:
         """
         return self.fetch_registry(force_refresh=False)
     
-    def find_package(self, package_name: str) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
-        """
-        Find a package in the registry by name.
-        
-        Args:
-            package_name: Name of the package to find
-            
-        Returns:
-            Tuple of (repository dict, package dict) if found, else (None, None)
-        """
-        registry = self.get_registry()
-        
-        for repo in registry.get("repositories", []):
-            for pkg in repo.get("packages", []):
-                if pkg.get("name") == package_name:
-                    return repo, pkg
-                    
-        return None, None
-    
-    def get_latest_version(self, package_name: str) -> Optional[str]:
-        """
-        Get the latest version of a package.
-        
-        Args:
-            package_name: Name of the package
-            
-        Returns:
-            String with latest version or None if not found
-        """
-        _, package = self.find_package(package_name)
-        if package:
-            return package.get("latest_version")
-        return None
-    
     def invalidate_cache(self) -> None:
         """Invalidate both the local file cache and in-memory cache."""
         self._registry_cache = None
