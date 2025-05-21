@@ -4,7 +4,9 @@ import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 
+from hatch_validator import DependencyResolver
 from .package_loader import HatchPackageLoader
+from .registry_retriever import RegistryRetriever
 
 class HatchEnvironmentError(Exception):
     """Exception raised for environment management errors."""
@@ -15,24 +17,13 @@ class HatchEnvironmentManager:
         """Initialize the Hatch environment manager."""
         self.logger = logging.getLogger("hatch.environment_manager")
         self.logger.setLevel(logging.INFO)
-        self.environments_file = Path(__file__).parent / "envs" / "environments.json"
-        self.current_env_file = Path(__file__).parent / "envs" / "current_env"
         
         # Ensure the environments directory exists
-        self.environments_dir = Path(__file__).parent / "envs"
+        self.environments_dir = Path(__file__).parent.parent / "envs"
         self.environments_dir.mkdir(exist_ok=True)
         
-        # Initialize package loader
-        self.package_loader = HatchPackageLoader()
-        
-        # Set registry path
-        if registry_path is None:
-            registry_path = Path(__file__).parent.parent / "Hatch-Registry" / "hatch_packages_registry.json"
-            
-        self.registry_path = registry_path
-        
-        # Lazily initialize dependency resolver when needed
-        self._dependency_resolver = None
+        self.environments_file = self.environments_dir / "environments.json"
+        self.current_env_file = self.environments_dir / "current_env"
         
         # Initialize environments file if it doesn't exist
         if not self.environments_file.exists():
@@ -41,28 +32,21 @@ class HatchEnvironmentManager:
         # Initialize current environment file if it doesn't exist
         if not self.current_env_file.exists():
             self._initialize_current_env_file()
-        
+
         # Load environments into cache
         self._environments = self._load_environments_from_disk()
         self._current_env_name = self._load_current_env_name_from_disk()
-    
-    @property
-    def dependency_resolver(self):
-        """Lazy initialization of the dependency resolver to avoid circular imports."""
-        if self._dependency_resolver is None:
-            # Import here to avoid circular dependencies
-            import sys
-            from pathlib import Path
-            
-            # Add Validator to path if needed
-            validator_path = str(Path(__file__).parent.parent / "Hatch-Validator")
-            if validator_path not in sys.path:
-                sys.path.insert(0, validator_path)
-                
-            from dependency_resolver import DependencyResolver
-            self._dependency_resolver = DependencyResolver(env_manager=self, registry_path=self.registry_path)
         
-        return self._dependency_resolver
+        # Initialize package loader
+        self.package_loader = HatchPackageLoader()
+        
+        # Set registry path
+        self.registry_path = registry_path or Path.home() / ".hatch" / "registry" / "hatch_packages_registry.json"
+
+        retriever = RegistryRetriever()
+
+        # Lazily initialize dependency resolver when needed
+        self.dependency_resolver = DependencyResolver(registry_data=retriever.get_registry())
     
     def _initialize_environments_file(self):
         """Create the initial environments file with default environment."""
