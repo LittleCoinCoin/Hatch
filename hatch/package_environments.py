@@ -1,3 +1,9 @@
+"""
+Environment Manager for Hatch package system.
+
+This module provides the core functionality for managing isolated environments
+for Hatch packages.
+"""
 import json
 import logging
 import datetime
@@ -9,9 +15,11 @@ from .registry_retriever import RegistryRetriever
 from .package_loader import HatchPackageLoader, PackageLoaderError
 from .registry_explorer import find_package, get_package_release_url
 
+
 class HatchEnvironmentError(Exception):
-    """Exception raised for environment management errors."""
+    """Exception raised for environment-related errors."""
     pass
+
 
 class HatchEnvironmentManager:
     """
