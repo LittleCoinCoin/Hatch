@@ -1,11 +1,10 @@
-import json
 import logging
 import shutil
 import tempfile
-import os
 import requests
+import zipfile
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple, Union
+from typing import Optional
 
 
 class PackageLoaderError(Exception):
@@ -68,37 +67,54 @@ class HatchPackageLoader:
             
         # Create temporary directory for download
         with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            download_path = temp_path / f"{package_name}-{version}.zip"
+            temp_dir_path = Path(temp_dir)
+            temp_file = temp_dir_path / f"{package_name}-{version}.zip"
             
-            # Download package
             try:
-                self.logger.info(f"Downloading package: {package_url}")
-                response = requests.get(package_url, stream=True)
+                # Download the package
+                self.logger.info(f"Downloading package from {package_url}")
+                # Remote URL - download using requests
+                response = requests.get(package_url, stream=True, timeout=30)
                 response.raise_for_status()
                 
-                with open(download_path, 'wb') as f:
+                with open(temp_file, 'wb') as f:
                     for chunk in response.iter_content(chunk_size=8192):
                         f.write(chunk)
-            except Exception as e:
+                
+                # Extract the package
+                extract_dir = temp_dir_path / f"{package_name}-{version}"
+                extract_dir.mkdir(parents=True, exist_ok=True)
+                
+                with zipfile.ZipFile(temp_file, 'r') as zip_ref:
+                    zip_ref.extractall(extract_dir)
+                
+                # Ensure expected package structure
+                if not (extract_dir / "hatch_metadata.json").exists():
+                    # Check if the package has a top-level directory
+                    subdirs = [d for d in extract_dir.iterdir() if d.is_dir()]
+                    if len(subdirs) == 1 and (subdirs[0] / "hatch_metadata.json").exists():
+                        # Use the top-level directory as the package
+                        extract_dir = subdirs[0]
+                    else:
+                        raise PackageLoaderError(f"Invalid package structure: hatch_metadata.json not found")
+                
+                # Create the cache directory
+                cache_package_dir = self.cache_dir / f"{package_name}-{version}"
+                if cache_package_dir.exists():
+                    shutil.rmtree(cache_package_dir)
+                
+                # Move to cache
+                shutil.copytree(extract_dir, cache_package_dir)
+                self.logger.info(f"Cached package {package_name} v{version} to {cache_package_dir}")
+                
+                return cache_package_dir
+                
+            except requests.RequestException as e:
                 raise PackageLoaderError(f"Failed to download package: {e}")
-                
-            # Extract package
-            try:
-                # TODO: Implement extraction of downloaded package
-                # For now, just copy the file to simulate extraction
-                extracted_dir = temp_path / f"{package_name}-{version}"
-                extracted_dir.mkdir()
-                
-                # Cache the package
-                cache_path = self.cache_dir / f"{package_name}-{version}"
-                if cache_path.exists():
-                    shutil.rmtree(cache_path)
-                shutil.copytree(extracted_dir, cache_path)
-                
-                return cache_path
+            except zipfile.BadZipFile:
+                raise PackageLoaderError("Downloaded file is not a valid zip archive")
             except Exception as e:
-                raise PackageLoaderError(f"Failed to extract package: {e}")
+                raise PackageLoaderError(f"Error downloading package: {e}")
     
     def copy_package(self, source_path: Path, target_path: Path) -> bool:
         """
@@ -164,18 +180,25 @@ class HatchPackageLoader:
         Raises:
             PackageLoaderError: If installation fails
         """
+
         try:
-            # Download the package
-            downloaded_path = self.download_package(package_url, package_name, version)
-            
-            # Install to target directory
+            cached_path = self.download_package(package_url, package_name, version)
+            # Install from cache to target dir
             target_path = target_dir / package_name
-            self.copy_package(downloaded_path, target_path)
             
-            self.logger.info(f"Installed remote package: {package_name}@{version} to {target_path}")
+            # Remove existing installation if it exists
+            if target_path.exists():
+                self.logger.info(f"Removing existing package at {target_path}")
+                shutil.rmtree(target_path)
+                
+            # Copy package to target
+            self.copy_package(cached_path, target_path)
+            
+            self.logger.info(f"Successfully installed package {package_name} v{version} to {target_path}")
             return target_path
+            
         except Exception as e:
-            raise PackageLoaderError(f"Failed to install remote package: {e}")
+            raise PackageLoaderError(f"Failed to install remote package {package_name} from {package_url}: {e}")
     
     def clear_cache(self, package_name: Optional[str] = None, version: Optional[str] = None) -> bool:
         """
