@@ -2,11 +2,12 @@ import json
 import logging
 import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Any, Tuple
 
-from hatch_validator import DependencyResolver
-from .package_loader import HatchPackageLoader
+from hatch_validator import HatchPackageValidator
 from .registry_retriever import RegistryRetriever
+from .package_loader import HatchPackageLoader, PackageLoaderError
+from .registry_explorer import find_package, get_package_release_url
 
 class HatchEnvironmentError(Exception):
     """Exception raised for environment management errors."""
@@ -261,297 +262,295 @@ class HatchEnvironmentManager:
         """
         return name in self._environments
     
-    def add_package_to_environment(self, package_path_or_name: str, env_name: Optional[str] = None, 
-                                  version: Optional[str] = None) -> bool:
+    def add_package_to_environment(self, package_path_or_name: str, 
+                                  env_name: Optional[str] = None, 
+                                  version_constraint: Optional[str] = None) -> bool:
         """
         Add a package to an environment.
         
         Args:
-            package_path_or_name: Path to local package or name of registry package
-            env_name: Target environment name (default: current environment)
-            version: Version to install (required for registry packages)
+            package_path_or_name: Path to local package or name of remote package
+            env_name: Environment to add to (uses current if None)
+            version_constraint: Version constraint for remote packages
             
         Returns:
-            bool: True if package was added successfully
+            bool: True if successful, False otherwise
         """
-        # Determine environment
-        if env_name is None:
-            env_name = self._current_env_name
-            
+        env_name = env_name or self._current_env_name
         if not self.environment_exists(env_name):
-            self.logger.error(f"Environment does not exist: {env_name}")
+            self.logger.error(f"Environment {env_name} does not exist")
             return False
+        # Check if package is local or remote
+        package_path = Path(package_path_or_name)
+        is_local_package = package_path.exists() and package_path.is_dir()
+
+        local_deps, remote_deps = [], []
+        if is_local_package:
+            # Get the hatch_dependencies from the local pkg's metadata
+            with open(package_path / "hatch_metadata.json", 'r') as f:
+                hatch_metadata = json.load(f)
+            package_name = hatch_metadata.get("name", Path(package_path).name)
+            package_version = hatch_metadata.get("version", "0.0.0")
+            hatch_dependencies = hatch_metadata.get("hatch_dependencies", [])
+            local_deps, remote_deps = self._get_deps_from_all_local_packages(hatch_dependencies)
+
+        else:
+            # For remote packages, there can only be remote dependencies
+            package_name = package_path_or_name
+            package_version = version_constraint
+            remote_deps = self.package_validator.dependency_resolver.get_full_package_dependencies(
+                package_name, package_version).get("dependencies", [])
+                  # Detect circular dependencies by analyzing currently installed packages
+        # and the package we're trying to install
+        current_dependencies = []
+        
+        # Get currently installed packages
+        installed_packages = {}
+        for pkg in self._environments[env_name].get("packages", []):
+            installed_packages[pkg["name"]] = pkg["version"]
             
-        env_data = self._environments[env_name]
-        
-        # Determine if we're dealing with a local or registry package
-        is_local = Path(package_path_or_name).exists()
-        
-        try:
-            # Handle local package
-            if is_local:
-                package_path = Path(package_path_or_name)
-                
-                # Load package metadata
-                metadata_path = package_path / "hatch_metadata.json"
-                if not metadata_path.exists():
-                    self.logger.error(f"Package metadata not found: {metadata_path}")
-                    return False
+            # For each installed package, get its dependencies to build the dependency graph
+            if pkg["type"] == "local":
+                # For local packages, use metadata file to get dependencies
+                pkg_install_path = self.get_environment_path(env_name) / pkg["name"]
+                if (pkg_install_path / "hatch_metadata.json").exists():
+                    with open(pkg_install_path / "hatch_metadata.json", 'r') as f:
+                        pkg_metadata = json.load(f)
+                    pkg_deps = pkg_metadata.get("hatch_dependencies", [])
                     
-                with open(metadata_path, 'r') as f:
-                    metadata = json.load(f)
+                    # Transform the dependencies to correct format
+                    processed_deps = []
+                    for dep in pkg_deps:
+                        if dep.get("name"):  # Make sure the dependency has a name
+                            processed_deps.append(dep.get("name"))
                     
-                package_name = metadata.get('name')
-                package_version = metadata.get('version')
-                
-                if not package_name or not package_version:
-                    self.logger.error("Invalid package metadata: missing name or version")
-                    return False
-                
-                # Check for circular dependencies
-                has_circular, cycle = self.dependency_resolver.check_circular_dependencies(package_name, package_version)
-                if has_circular:
-                    self.logger.error(f"Circular dependency detected: {' -> '.join(cycle)}")
-                    return False
-                
-                # Validate dependencies
-                missing_deps = self.dependency_resolver.get_missing_hatch_dependencies(
-                    metadata.get('hatch_dependencies', [])
-                )
-                
-                # Install missing dependencies
-                for dep in missing_deps:
-                    dep_name = dep.get('name')
-                    self.logger.info(f"Installing missing dependency: {dep_name}")
-                    
-                    # Check if it's a local dependency
-                    if dep.get('type') == 'local':
-                        uri = dep.get('uri')
-                        if not uri:
-                            self.logger.error(f"Missing URI for local dependency: {dep_name}")
-                            return False
-                            
-                        # Local path from file:// URI
-                        if uri.startswith('file://'):
-                            local_path = Path(uri[7:])
-                            if not self.add_package_to_environment(str(local_path), env_name):
-                                return False
-                    else:
-                        # Remote dependency - we need to get version and install
-                        dep_version = self.dependency_resolver._find_latest_version(
-                            dep_name, dep.get('version_constraint', '')
-                        )
-                        
-                        if not dep_version:
-                            self.logger.error(f"Could not find suitable version for {dep_name}")
-                            return False
-                            
-                        if not self.add_package_to_environment(dep_name, env_name, dep_version):
-                            return False
-                
-                # Install the package itself
-                target_dir = self.environments_dir / env_name
-                target_dir.mkdir(exist_ok=True)
-                
-                self.package_loader.install_local_package(package_path, target_dir, package_name)
-                
-                # Update environment data
-                package_entry = {
-                    'name': package_name,
-                    'version': package_version,
-                    'added_date': datetime.datetime.now().isoformat(),
-                    'path': str(target_dir / package_name)
-                }
-                
-                # Add to environment packages or update if exists
-                exists = False
-                for i, pkg in enumerate(env_data['packages']):
-                    if pkg['name'] == package_name:
-                        env_data['packages'][i] = package_entry
-                        exists = True
-                        break
-                        
-                if not exists:
-                    env_data['packages'].append(package_entry)
-                
-                # Save changes
-                self._save_environments(self._environments)
-                
-                self.logger.info(f"Added package {package_name} to environment {env_name}")
-                return True
-                
+                    current_dependencies.append({"name": pkg["name"], "dependencies": processed_deps})
             else:
-                # Handle registry package
-                package_name = package_path_or_name
+                # For remote packages, use the registry data
+                pkg_deps = self.package_validator.dependency_resolver.get_full_package_dependencies(
+                    pkg["name"], pkg["version"]).get("dependencies", [])
                 
-                if not version:
-                    self.logger.error("Version required for registry packages")
-                    return False
+                # Transform the dependencies to correct format
+                processed_deps = []
+                for dep in pkg_deps:
+                    if dep.get("name"):  # Make sure the dependency has a name
+                        processed_deps.append(dep.get("name"))
                 
-                # Check for circular dependencies
-                has_circular, cycle = self.dependency_resolver.check_circular_dependencies(package_name, version)
-                if has_circular:
-                    self.logger.error(f"Circular dependency detected: {' -> '.join(cycle)}")
+                current_dependencies.append({"name": pkg["name"], "dependencies": processed_deps})
+        
+        # Add the new package to check if it would create a circular dependency
+        if is_local_package:
+            hatch_deps = hatch_metadata.get("hatch_dependencies", [])
+            processed_deps = []
+            for dep in hatch_deps:
+                if dep.get("name"):  # Make sure the dependency has a name
+                    processed_deps.append(dep.get("name"))
+                    
+            current_dependencies.append({
+                "name": package_name,
+                "dependencies": processed_deps
+            })
+        else:
+            pkg_deps = self.package_validator.dependency_resolver.get_full_package_dependencies(
+                package_name, package_version).get("dependencies", [])
+            
+            processed_deps = []
+            for dep in pkg_deps:
+                if dep.get("name"):  # Make sure the dependency has a name
+                    processed_deps.append(dep.get("name"))
+                    
+            current_dependencies.append({
+                "name": package_name,
+                "dependencies": processed_deps
+            })
+        
+        self.logger.debug(f"Checking for circular dependencies in: {current_dependencies}")
+        
+        # Check for circular dependencies
+        has_cycles, cycles = self.package_validator.dependency_resolver.detect_dependency_cycles(
+            current_dependencies)
+            
+        if has_cycles:
+            self.logger.error(f"Circular dependency detected: {cycles}")
+            return False
+
+        # Find missing dependencies
+        local_missing_deps = self._filter_for_missing_dependencies(local_deps, env_name)
+        remote_missing_deps = self._filter_for_missing_dependencies(remote_deps, env_name)
+
+        # Install missing dependencies
+        ## Delegate to package loader
+        for dep in local_missing_deps:
+            try:
+                self.package_loader.install_local_package(
+                    dep["path"],
+                    self.get_environment_path(env_name),
+                    dep["name"]
+                )
+                with open(dep["path"] / "hatch_metadata.json", 'r') as f:
+                    hatch_metadata = json.load(f)
+                self._add_package_to_env_data(env_name, dep["name"], hatch_metadata.get("version"), "local", "local")
+            except PackageLoaderError as e:
+                self.logger.error(f"Failed to install local package {dep['name']}: {e}")
+                return False
+        for dep in remote_missing_deps:
+            try:
+                # First, download the package to cache
+                package_registry_data = find_package(self.registry_data, dep['name'])     
+                self.logger.debug(f"Package registry data: {json.dumps(package_registry_data, indent=2)}")           
+                package_url = get_package_release_url(package_registry_data, dep["version_constraint"])
+                self.package_loader.install_remote_package(package_url,
+                                                            dep["name"],
+                                                            dep["version_constraint"],
+                                                            self.get_environment_path(env_name))
+                self._add_package_to_env_data(env_name, dep["name"], dep["version_constraint"], "remote", "registry")
+            except PackageLoaderError as e:
+                self.logger.error(f"Failed to install remote package {dep['name']}: {e}")
+                return False
+
+        # Install the main package and add it to environment data
+        try:
+            if is_local_package:
+                # Install the local package
+                self.package_loader.install_local_package(
+                    package_path,
+                    self.get_environment_path(env_name),
+                    Path(package_path).name
+                )
+                # Read metadata to get name and version
+                with open(package_path / "hatch_metadata.json", 'r') as f:
+                    package_metadata = json.load(f)
+                package_name = package_metadata.get("name", Path(package_path).name)
+                package_version = package_metadata.get("version", "0.0.0")
+                self._add_package_to_env_data(env_name, package_name, package_version, "local", "local")
+            else:                # Remote package
+                package_registry_data = find_package(self.registry_data, package_path_or_name)
+                if not package_registry_data:
+                    self.logger.error(f"Package {package_path_or_name} not found in registry")
                     return False
                     
-                # Resolve dependencies
-                resolved_deps = self.dependency_resolver.resolve_dependencies(package_name, version=version)
-                
-                # Install all required packages in order
-                target_dir = self.environments_dir / env_name
-                target_dir.mkdir(exist_ok=True)
-                
-                # Get the package URL from registry
-                repo_info, pkg_info = None, None
-                for repo in self.dependency_resolver.registry_data.get('repositories', []):
-                    for pkg in repo.get('packages', []):
-                        if pkg['name'] == package_name:
-                            repo_info, pkg_info = repo, pkg
-                            break
-                    if pkg_info:
-                        break
-                        
-                if not pkg_info:
-                    self.logger.error(f"Package {package_name} not found in registry")
+                package_url = get_package_release_url(package_registry_data, version_constraint)
+                if not package_url:
+                    self.logger.error(f"Could not find release URL for package {package_path_or_name} with version constraint {version_constraint}")
                     return False
-                
-                # Find the specific version
-                version_info = None
-                for ver in pkg_info.get('versions', []):
-                    if ver['version'] == version:
-                        version_info = ver
-                        break
-                        
-                if not version_info:
-                    self.logger.error(f"Version {version} not found for package {package_name}")
-                    return False
-                
-                # Construct package URL
-                # TODO: Implement proper URL construction based on registry format
-                package_url = f"{repo_info.get('url', '')}/{pkg_info['name']}/{version_info['version']}"
-                
-                # Install the package
-                self.package_loader.install_remote_package(package_url, package_name, version, target_dir)
-                
-                # Update environment data
-                package_entry = {
-                    'name': package_name,
-                    'version': version,
-                    'added_date': datetime.datetime.now().isoformat(),
-                    'path': str(target_dir / package_name)
-                }
-                
-                # Add to environment packages or update if exists
-                exists = False
-                for i, pkg in enumerate(env_data['packages']):
-                    if pkg['name'] == package_name:
-                        env_data['packages'][i] = package_entry
-                        exists = True
-                        break
-                        
-                if not exists:
-                    env_data['packages'].append(package_entry)
-                
-                # Save changes
-                self._save_environments(self._environments)
-                
-                self.logger.info(f"Added package {package_name}@{version} to environment {env_name}")
-                return True
-                
-        except Exception as e:
-            self.logger.error(f"Failed to add package: {e}")
+                    
+                self.package_loader.install_remote_package(
+                    package_url,
+                    package_path_or_name,
+                    version_constraint,
+                    self.get_environment_path(env_name)
+                )
+                self._add_package_to_env_data(env_name, package_path_or_name, version_constraint, "remote", "registry")
+        except PackageLoaderError as e:
+            self.logger.error(f"Failed to install package {package_path_or_name}: {e}")
             return False
-    
-    def remove_package_from_environment(self, package_name: str, env_name: Optional[str] = None) -> bool:
-        """
-        Remove a package from an environment.
-        
-        Args:
-            package_name: Name of the package to remove
-            env_name: Environment name (default: current environment)
-            
-        Returns:
-            bool: True if package was removed successfully
-        """
-        # Determine environment
-        if env_name is None:
-            env_name = self._current_env_name
-            
-        if not self.environment_exists(env_name):
-            self.logger.error(f"Environment does not exist: {env_name}")
-            return False
-            
-        env_data = self._environments[env_name]
-        
-        # Check if package exists in environment
-        package_index = None
-        package_path = None
-        
-        for i, pkg in enumerate(env_data['packages']):
-            if pkg['name'] == package_name:
-                package_index = i
-                package_path = pkg.get('path')
-                break
-                
-        if package_index is None:
-            self.logger.error(f"Package {package_name} not found in environment {env_name}")
-            return False
-            
-        # Remove package directory if it exists
-        if package_path:
-            try:
-                package_dir = Path(package_path)
-                if package_dir.exists() and package_dir.is_dir():
-                    import shutil
-                    shutil.rmtree(package_dir)
-            except Exception as e:
-                self.logger.error(f"Failed to remove package directory: {e}")
-                # Continue anyway to remove from environment data
-        
-        # Remove from environment data
-        env_data['packages'].pop(package_index)
-        
-        # Save changes
-        self._save_environments(self._environments)
-        
-        self.logger.info(f"Removed package {package_name} from environment {env_name}")
+
         return True
-    
-    def list_packages_in_environment(self, env_name: Optional[str] = None) -> List[Dict]:
-        """
-        List all packages in an environment.
-        
+
+    def _get_deps_from_all_local_packages(self, hatch_dependencies: List[Dict]) -> Tuple[List[Dict], List[str]]:
+        """Retrieves the local and remote dependencies from the hatch_dependencies list of a package.
+
         Args:
-            env_name: Environment name (default: current environment)
-            
+            hatch_dependencies: List of dependencies from the package's metadata
         Returns:
-            List[Dict]: List of package information dictionaries
+            Tuple of local and remote dependencies
         """
-        # Determine environment
-        if env_name is None:
-            env_name = self._current_env_name
-            
+        deps_queue = hatch_dependencies.copy()
+        local_deps = []
+        remote_deps_queue = []
+        
+        while deps_queue:
+            dep = deps_queue.pop(0)
+            if dep.get("type").get("type") == "local":
+                local_deps += [{"name": dep.get("name"), "path": dep.get("type").get("path")}]
+                deps_queue += local_deps[-1].get("hatch_dependencies", [])
+            else:
+                remote_deps_queue.append(dep)
+
+        remote_deps = []
+        while remote_deps_queue:
+            dep = remote_deps_queue.pop(0)
+            remote_deps += [{"name": dep.get("name"), "version_constraint": dep.get("version_constraint")}]
+            new_deps = self.package_validator.dependency_resolver.get_full_package_dependencies(
+                dep.get("name"), dep.get("version_constraint"))
+            remote_deps_queue += new_deps.get("dependencies", [])
+
+        return local_deps, remote_deps
+
+    def _filter_for_missing_dependencies(self, dependencies: List[Dict], env_name: str) -> List[Dict]:
+        """Determine which dependencies are not installed in the environment."""
         if not self.environment_exists(env_name):
-            self.logger.error(f"Environment does not exist: {env_name}")
-            return []
+            raise HatchEnvironmentError(f"Environment {env_name} does not exist")
+        
+        # Get currently installed packages
+        installed_packages = {}
+        for pkg in self._environments[env_name].get("packages", []):
+            installed_packages[pkg["name"]] = pkg["version"]
+        
+        # Find missing dependencies
+        missing_deps = []
+        for dep in dependencies:
+            dep_name = dep.get("name")
+            if dep_name not in installed_packages:
+                missing_deps.append(dep)
+                continue
             
-        env_data = self._environments[env_name]
-        return env_data['packages']
+            # Check version constraints
+            constraint = dep.get("version_constraint")
+            if constraint and not self.package_validator.dependency_resolver.is_version_compatible(
+                    installed_packages[dep_name], constraint):
+                missing_deps.append(dep)
+        
+        return missing_deps
     
-    def get_environment_path(self, env_name: Optional[str] = None) -> Path:
+    def _add_package_to_env_data(self, env_name: str, package_name: str, 
+                               package_version: str, package_type: str, 
+                               source: str) -> None:
+        """Update environment data with package information."""
+        if env_name not in self._environments:
+            raise HatchEnvironmentError(f"Environment {env_name} does not exist")
+        
+        # Check if package already exists
+        for i, pkg in enumerate(self._environments[env_name].get("packages", [])):
+            if pkg.get("name") == package_name:
+                # Replace existing package entry
+                self._environments[env_name]["packages"][i] = {
+                    "name": package_name,
+                    "version": package_version,
+                    "type": package_type,
+                    "source": source,
+                    "installed_at": datetime.datetime.now().isoformat()
+                }
+                self._save_environments()
+                return
+        
+        # if it doesn't exist add new package entry
+        self._environments[env_name]["packages"] += [{
+            "name": package_name,
+            "version": package_version,
+            "type": package_type,
+            "source": source,
+            "installed_at": datetime.datetime.now().isoformat()
+        }]
+
+        self._save_environments()
+    
+    def get_environment_path(self, env_name: str) -> Path:
         """
-        Get the path to an environment directory.
+        Get the path to the environment directory.
         
         Args:
-            env_name: Environment name (default: current environment)
+            env_name: Name of the environment
             
         Returns:
             Path: Path to the environment directory
+            
+        Raises:
+            HatchEnvironmentError: If environment doesn't exist
         """
-        if env_name is None:
-            env_name = self._current_env_name
-            
         if not self.environment_exists(env_name):
-            raise HatchEnvironmentError(f"Environment does not exist: {env_name}")
-            
-        return self.environments_dir / env_name
+            raise HatchEnvironmentError(f"Environment {env_name} does not exist")
+        
+        env_path = self.environments_dir / env_name
+        env_path.mkdir(exist_ok=True)
+        return env_path
