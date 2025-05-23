@@ -111,23 +111,32 @@ class RegistryRetriever:
             current_time - self._last_fetch_time < self.cache_ttl):
             self.logger.debug("Using in-memory cache")
             return self._registry_cache
+        
+        # Ensure registry cache directory exists
+        self.registry_cache_path.parent.mkdir(parents=True, exist_ok=True)
             
-        # Check if local cache is not outdated and
+        # Check if local cache is not outdated
         if not force_refresh and not self.is_cache_outdated():
-            self.logger.debug("Using local cache file")
-            registry_data = self._read_local_cache()
-            
-            # Update in-memory cache
-            self._registry_cache = registry_data
-            self._last_fetch_time = current_time
-            
-            return registry_data
+            try:
+                self.logger.debug("Using local cache file")
+                registry_data = self._read_local_cache()
+                
+                # Update in-memory cache
+                self._registry_cache = registry_data
+                self._last_fetch_time = current_time
+                
+                return registry_data
+            except Exception as e:
+                self.logger.warning(f"Error reading local cache: {e}, will fetch from source instead")
+                # If reading cache fails, continue to fetch from source
             
         # Fetch from source based on mode
         try:
             if self.simulation_mode:
+                # In simulation mode, we must have a local registry file
                 registry_data = self._read_local_cache()
             else:
+                # In online mode, fetch from remote URL
                 registry_data = self._fetch_remote_registry()
             
             # Update local cache
@@ -153,7 +162,7 @@ class RegistryRetriever:
             bool: True if cache is outdated, False if cache is current
         """
         if not self.registry_cache_path.exists():
-            return False
+            return True  # If file doesn't exist, consider it outdated
         
         # Get today's date in UTC
         today_utc = datetime.datetime.now(datetime.timezone.utc).date()
