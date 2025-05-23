@@ -18,18 +18,17 @@ class HatchEnvironmentManager:
         self.logger = logging.getLogger("hatch.environment_manager")
         self.logger.setLevel(logging.INFO)
         
-        # Ensure the environments directory exists
+        # Set up environment directories
         self.environments_dir = Path(__file__).parent.parent / "envs"
         self.environments_dir.mkdir(exist_ok=True)
         
         self.environments_file = self.environments_dir / "environments.json"
         self.current_env_file = self.environments_dir / "current_env"
         
-        # Initialize environments file if it doesn't exist
+        # Initialize files if they don't exist
         if not self.environments_file.exists():
             self._initialize_environments_file()
         
-        # Initialize current environment file if it doesn't exist
         if not self.current_env_file.exists():
             self._initialize_current_env_file()
 
@@ -98,11 +97,11 @@ class HatchEnvironmentManager:
         self._current_env_name = self._load_current_env_name()
         self.logger.info("Reloaded environments from disk")
     
-    def _save_environments(self, environments: Dict):
+    def _save_environments(self):
         """Save environments to the environments file."""
         try:
             with open(self.environments_file, 'w') as f:
-                json.dump(environments, f, indent=2)
+                json.dump(self._environments, f, indent=2)
         except Exception as e:
             self.logger.error(f"Failed to save environments: {e}")
             raise HatchEnvironmentError(f"Failed to save environments: {e}")
@@ -188,8 +187,7 @@ class HatchEnvironmentManager:
             "packages": []
         }
         
-        # Save environments and update cache
-        self._save_environments(self._environments)
+        self._save_environments()
         self.logger.info(f"Created environment: {name}")
         return True
     
@@ -223,7 +221,7 @@ class HatchEnvironmentManager:
         del self._environments[name]
         
         # Save environments and update cache
-        self._save_environments(self._environments)
+        self._save_environments()
         self.logger.info(f"Removed environment: {name}")
         return True
     
