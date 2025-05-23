@@ -34,11 +34,8 @@ class HatchEnvironmentManager:
             self._initialize_current_env_file()
 
         # Load environments into cache
-        self._environments = self._load_environments_from_disk()
-        self._current_env_name = self._load_current_env_name_from_disk()
-        
-        # Initialize package loader
-        self.package_loader = HatchPackageLoader()
+        self._environments = self._load_environments()
+        self._current_env_name = self._load_current_env_name()
         
         # Set registry path
         self.registry_path = registry_path or Path.home() / ".hatch" / "registry" / "hatch_packages_registry.json"
@@ -79,14 +76,10 @@ class HatchEnvironmentManager:
         except (json.JSONDecodeError, FileNotFoundError) as e:
             self.logger.error(f"Failed to load environments: {e}")
             self._initialize_environments_file()
-            return {"default": {"name": "default", "description": "Default environment", "created_at": "", "packages": []}}
+            return {"default": {"name": "default", "description": "Default environment", 
+                    "created_at": datetime.datetime.now().isoformat(), "packages": []}}
     
-    def _load_environments_from_disk(self) -> Dict:
-        """Load environments from the environments file."""
-        # This is an alias for _load_environments for backward compatibility
-        return self._load_environments()
-    
-    def _load_current_env_name_from_disk(self) -> str:
+    def _load_current_env_name(self) -> str:
         """Load current environment name from disk."""
         try:
             with open(self.current_env_file, 'r') as f:
@@ -101,8 +94,8 @@ class HatchEnvironmentManager:
     
     def reload_environments(self):
         """Reload environments from disk."""
-        self._environments = self._load_environments_from_disk()
-        self._current_env_name = self._load_current_env_name_from_disk()
+        self._environments = self._load_environments()
+        self._current_env_name = self._load_current_env_name()
         self.logger.info("Reloaded environments from disk")
     
     def _save_environments(self, environments: Dict):
