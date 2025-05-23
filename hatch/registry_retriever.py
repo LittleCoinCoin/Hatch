@@ -58,8 +58,8 @@ class RegistryRetriever:
             self.registry_url = f"https://github.com/CrackingShells/Hatch-Registry/releases/download/{ydm}/hatch_packages_registry.json"
             self.logger.info(f"Operating in online mode with registry at: {self.registry_url}")
         
-        # Generate cache filename based on URL hash
-        self.registry_cache_path = self.cache_dir / "registry" / "hatch_packages_registry.json"
+            # Generate cache filename based on URL hash
+            self.registry_cache_path = self.cache_dir / "registry" / "hatch_packages_registry.json"
         
         # In-memory cache
         self._registry_cache = None
