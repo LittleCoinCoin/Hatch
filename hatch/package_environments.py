@@ -13,8 +13,30 @@ class HatchEnvironmentError(Exception):
     pass
 
 class HatchEnvironmentManager:
-    def __init__(self, registry_path=None):
-        """Initialize the Hatch environment manager."""
+    """
+    Manages Hatch environments for package installation and isolation.
+    
+    This class handles:
+    1. Creating and managing isolated environments
+    2. Adding packages to environments
+    3. Resolving and managing dependencies using a DependencyResolver
+    4. Installing packages with the HatchPackageLoader
+    """
+    def __init__(self, 
+                 cache_ttl: int = 86400,  # Default TTL is 24 hours
+                 cache_dir: Optional[Path] = None,
+                 simulation_mode: bool = False,
+                 local_registry_cache_path: Optional[Path] = None):
+        """Initialize the Hatch environment manager.
+        
+        Args:
+            cache_ttl: Time-to-live for cache in seconds
+            cache_dir: Directory to store local cache files (default: ~/.hatch)
+            simulation_mode: Whether to operate in local simulation mode
+            local_registry_cache_path: Path to local registry file (for simulation mode)
+        
+        """
+
         self.logger = logging.getLogger("hatch.environment_manager")
         self.logger.setLevel(logging.INFO)
         
@@ -36,21 +58,25 @@ class HatchEnvironmentManager:
         self._environments = self._load_environments()
         self._current_env_name = self._load_current_env_name()
         
-        # Set registry path
-        self.registry_path = registry_path or Path.home() / ".hatch" / "registry" / "hatch_packages_registry.json"
+        # Initialize dependencies
+        self.package_loader = HatchPackageLoader(cache_dir=cache_dir)
 
-        retriever = RegistryRetriever()
+        # Get dependency resolver from imported module
+        retriever = RegistryRetriever(cache_ttl=cache_ttl,
+                                      local_cache_dir=cache_dir,
+                                      simulation_mode=simulation_mode,
+                                      local_registry_cache_path=local_registry_cache_path)
+        self.registry_data = retriever.get_registry()
+        self.package_validator = HatchPackageValidator(registry_data=self.registry_data)
+        self.dependency_resolver = self.package_validator.dependency_resolver
 
-        # Lazily initialize dependency resolver when needed
-        self.dependency_resolver = DependencyResolver(registry_data=retriever.get_registry())
-    
     def _initialize_environments_file(self):
         """Create the initial environments file with default environment."""
         default_environments = {
             "default": {
                 "name": "default",
                 "description": "Default environment",
-                "created_at": "",
+                "created_at": datetime.datetime.now().isoformat(),
                 "packages": []
             }
         }
@@ -211,10 +237,8 @@ class HatchEnvironmentManager:
             self.logger.warning(f"Environment does not exist: {name}")
             return False
         
-        # Check if it's the current environment
-        current_env = self._current_env_name
-        if name == current_env:
-            # Reset to default environment
+        # If removing current environment, switch to default
+        if name == self._current_env_name:
             self.set_current_environment("default")
         
         # Remove environment
