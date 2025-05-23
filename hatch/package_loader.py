@@ -24,8 +24,8 @@ class HatchPackageLoader:
         
         # Set up cache directory
         if cache_dir is None:
-            cache_dir = Path.home() / '.hatch' / 'cache' / 'packages'
-        self.cache_dir = cache_dir
+            cache_dir = Path.home() / '.hatch'
+        self.cache_dir = cache_dir / "packages"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         
     def _get_package_path(self, package_name: str, version: str) -> Optional[Path]:
