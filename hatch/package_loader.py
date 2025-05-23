@@ -17,7 +17,8 @@ class HatchPackageLoader:
         """Initialize the Hatch package loader.
 
         Args:
-            cache_dir: Directory to cache downloaded packages
+            cache_dir: Directory to of all cached files for Hatch. Packages will then be at
+            <cache_dir>/packages. If none is provided, it will default to ~/.hatch/packages.
         """
         self.logger = logging.getLogger("hatch.package_loader")
         self.logger.setLevel(logging.INFO)
@@ -62,7 +63,7 @@ class HatchPackageLoader:
         # Check if already cached
         cached_path = self._get_package_path(package_name, version)
         if cached_path:
-            self.logger.info(f"Using cached package: {package_name}@{version}")
+            self.logger.info(f"Using cached package {package_name} v{version}")
             return cached_path
             
         # Create temporary directory for download
