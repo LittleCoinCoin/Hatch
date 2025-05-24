@@ -77,6 +77,14 @@ def find_package_version(pkg: Dict[str, Any], version_constraint: Optional[str] 
     """
     Find a version dict for a package, optionally matching a version constraint.
     If no constraint is given, returns the latest version.
+
+    Args:
+        pkg (Dict[str, Any]): The package dictionary.
+        version_constraint (Optional[str]): A version constraint string (e.g., '>=1.2.0').
+
+    Returns:
+        Optional[Dict[str, Any]]: The version dict matching the constraint or latest version.
+
     """
     versions = pkg.get("versions", [])
     if not versions:
@@ -96,11 +104,6 @@ def find_package_version(pkg: Dict[str, Any], version_constraint: Optional[str] 
         sorted_versions = sorted(versions, key=lambda x: Version(x.get("version", "0")), reverse=True)
     except Exception:
          sorted_versions = versions
-        
-    # # First, try to find an exact version match
-    # for v in sorted_versions:
-    #     if v.get("version") == version_constraint:
-    #         return v
     
     # If no exact match, try parsing as a constraint
     for v in sorted_versions:
@@ -108,14 +111,20 @@ def find_package_version(pkg: Dict[str, Any], version_constraint: Optional[str] 
             return v
     return None
 
-def get_package_release_url(pkg: Dict[str, Any], version_constraint: Optional[str] = None) -> Optional[str]:
+def get_package_release_url(pkg: Dict[str, Any], version_constraint: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
     """
     Get the release URI for a package version matching the constraint (or latest).
+
+    Args:
+        pkg (Dict[str, Any]): The package dictionary.
+        version_constraint (Optional[str]): A version constraint string (e.g., '>=1.2.0').
+    Returns:
+        Tuple[Optional[str], Optional[str]]: A tuple containing the release URI and version string satisfying the constraint.
     """
     if pkg is None:
-        return None
-        
+        return None, None
+
     vdict = find_package_version(pkg, version_constraint)
     if vdict:
-        return vdict.get("release_uri")
-    return None
+        return vdict.get("release_uri"), vdict.get("version")
+    return None, None

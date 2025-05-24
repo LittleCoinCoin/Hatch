@@ -419,12 +419,12 @@ class HatchEnvironmentManager:
                 # First, download the package to cache
                 package_registry_data = find_package(self.registry_data, dep['name'])     
                 self.logger.debug(f"Package registry data: {json.dumps(package_registry_data, indent=2)}")           
-                package_url = get_package_release_url(package_registry_data, dep["version_constraint"])
+                package_url, package_version = get_package_release_url(package_registry_data, dep["version_constraint"])
                 self.package_loader.install_remote_package(package_url,
                                                             dep["name"],
-                                                            dep["version_constraint"],
+                                                            package_version,
                                                             self.get_environment_path(env_name))
-                self._add_package_to_env_data(env_name, dep["name"], dep["version_constraint"], "remote", "registry")
+                self._add_package_to_env_data(env_name, dep["name"], package_version, "remote", "registry")
             except PackageLoaderError as e:
                 self.logger.error(f"Failed to install remote package {dep['name']}: {e}")
                 return False
@@ -449,8 +449,8 @@ class HatchEnvironmentManager:
                 if not package_registry_data:
                     self.logger.error(f"Package {package_path_or_name} not found in registry")
                     return False
-                    
-                package_url = get_package_release_url(package_registry_data, version_constraint)
+
+                package_url, package_version = get_package_release_url(package_registry_data, version_constraint)
                 if not package_url:
                     self.logger.error(f"Could not find release URL for package {package_path_or_name} with version constraint {version_constraint}")
                     return False
@@ -458,10 +458,10 @@ class HatchEnvironmentManager:
                 self.package_loader.install_remote_package(
                     package_url,
                     package_path_or_name,
-                    version_constraint,
+                    package_version,
                     self.get_environment_path(env_name)
                 )
-                self._add_package_to_env_data(env_name, package_path_or_name, version_constraint, "remote", "registry")
+                self._add_package_to_env_data(env_name, package_path_or_name, package_version, "remote", "registry")
         except PackageLoaderError as e:
             self.logger.error(f"Failed to install package {package_path_or_name}: {e}")
             return False
