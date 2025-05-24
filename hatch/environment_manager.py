@@ -32,6 +32,7 @@ class HatchEnvironmentManager:
     4. Installing packages with the HatchPackageLoader
     """
     def __init__(self, 
+                 environments_dir: Optional[Path] = None,
                  cache_ttl: int = 86400,  # Default TTL is 24 hours
                  cache_dir: Optional[Path] = None,
                  simulation_mode: bool = False,
@@ -39,6 +40,7 @@ class HatchEnvironmentManager:
         """Initialize the Hatch environment manager.
         
         Args:
+            environments_dir: Directory to store environments (default: ~/.hatch/envs)
             cache_ttl: Time-to-live for cache in seconds
             cache_dir: Directory to store local cache files (default: ~/.hatch)
             simulation_mode: Whether to operate in local simulation mode
@@ -48,11 +50,10 @@ class HatchEnvironmentManager:
 
         self.logger = logging.getLogger("hatch.environment_manager")
         self.logger.setLevel(logging.INFO)
-        
         # Set up environment directories
-        self.environments_dir = Path.home() / ".hatch" / "envs"
+        self.environments_dir = environments_dir or (Path.home() / ".hatch" / "envs")
         self.environments_dir.mkdir(exist_ok=True)
-        
+
         self.environments_file = self.environments_dir / "environments.json"
         self.current_env_file = self.environments_dir / "current_env"
         

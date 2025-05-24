@@ -72,11 +72,21 @@ def main():
     # List packages command
     pkg_list_parser = pkg_subparsers.add_parser("list", help="List packages in an environment")
     pkg_list_parser.add_argument("--env", "-e", help="Environment name (default: current environment)")    # Parse arguments
+
+    # General arguments for the environment manager
+    parser.add_argument("--envs-dir", default=Path.home() / ".hatch" / "envs", help="Directory to store environments")
+    parser.add_argument("--cache-ttl", type=int, default=86400, help="Cache TTL in seconds (default: 86400 seconds --> 1 day)")
+    parser.add_argument("--cache-dir", default=Path.home() / ".hatch" / "cache", help="Directory to store cached packages")
+    
     args = parser.parse_args()
-    
+
     # Initialize environment manager
-    env_manager = HatchEnvironmentManager()
-    
+    env_manager = HatchEnvironmentManager(
+        environments_dir=args.envs_dir,
+        cache_ttl=args.cache_ttl,
+        cache_dir=args.cache_dir
+    )
+
     # Execute commands
     if args.command == "create":
         target_dir = Path(args.dir).resolve()
