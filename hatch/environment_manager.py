@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from hatch_validator import HatchPackageValidator
 from .registry_retriever import RegistryRetriever
 from .package_loader import HatchPackageLoader, PackageLoaderError
-from .registry_explorer import find_package, get_package_release_url
+from .registry_explorer import find_package, find_package_version, get_package_release_url
 
 
 class HatchEnvironmentError(Exception):
@@ -305,10 +305,23 @@ class HatchEnvironmentManager:
         else:
             # For remote packages, there can only be remote dependencies
             package_name = package_path_or_name
-            package_version = version_constraint
+            if not version_constraint:
+                # Find package in registry data
+                package_registry_data = find_package(self.registry_data, package_name)
+                if not package_registry_data:
+                    self.logger.error(f"Package {package_name} not found in registry")
+                    return False
+                # Find the information about the package version    
+                package_version_data = find_package_version(package_registry_data, version_constraint)
+                if not package_version_data:
+                    self.logger.error(f"Package {package_name} with version constraint {version_constraint} not found in registry")
+                    return False
+                else:
+                    package_version = package_version_data.get("version")
+
             remote_deps = self.package_validator.dependency_resolver.get_full_package_dependencies(
                 package_name, package_version).get("dependencies", [])
-                  # Detect circular dependencies by analyzing currently installed packages
+                
         # and the package we're trying to install
         current_dependencies = []
         
