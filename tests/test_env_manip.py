@@ -10,7 +10,7 @@ from datetime import datetime
 # Add parent directory to path for direct testing
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from hatch.package_environments import HatchEnvironmentManager
+from hatch.environment_manager import HatchEnvironmentManager
 from hatch.registry_retriever import RegistryRetriever
 from hatch_registry import RegistryUpdater
 
