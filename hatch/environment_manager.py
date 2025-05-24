@@ -50,7 +50,7 @@ class HatchEnvironmentManager:
         self.logger.setLevel(logging.INFO)
         
         # Set up environment directories
-        self.environments_dir = Path(__file__).parent.parent / "envs"
+        self.environments_dir = Path.home() / ".hatch" / "envs"
         self.environments_dir.mkdir(exist_ok=True)
         
         self.environments_file = self.environments_dir / "environments.json"
