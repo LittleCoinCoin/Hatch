@@ -562,3 +562,84 @@ class HatchEnvironmentManager:
         env_path = self.environments_dir / env_name
         env_path.mkdir(exist_ok=True)
         return env_path
+    
+    def list_packages(self, env_name: Optional[str] = None) -> List[Dict]:
+        """
+        List all packages installed in an environment.
+        
+        Args:
+            env_name: Name of the environment (uses current if None)
+            
+        Returns:
+            List[Dict]: List of package information dictionaries
+            
+        Raises:
+            HatchEnvironmentError: If environment doesn't exist
+        """
+        env_name = env_name or self._current_env_name
+        if not self.environment_exists(env_name):
+            raise HatchEnvironmentError(f"Environment {env_name} does not exist")
+        
+        packages = []
+        for pkg in self._environments[env_name].get("packages", []):
+            # Add full package info including paths
+            pkg_info = pkg.copy()
+            pkg_info["path"] = str(self.get_environment_path(env_name) / pkg["name"])
+            # Check if the package is Hatch compliant (has hatch_metadata.json)
+            pkg_path = self.get_environment_path(env_name) / pkg["name"]
+            pkg_info["hatch_compliant"] = (pkg_path / "hatch_metadata.json").exists()
+            
+            # Add source information
+            pkg_info["source"] = {
+                "uri": pkg.get("source", "unknown"),
+                "path": str(pkg_path)
+            }
+            
+            packages.append(pkg_info)
+        
+        return packages
+    
+    def remove_package(self, package_name: str, env_name: Optional[str] = None) -> bool:
+        """
+        Remove a package from an environment.
+        
+        Args:
+            package_name: Name of the package to remove
+            env_name: Environment to remove from (uses current if None)
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        env_name = env_name or self._current_env_name
+        if not self.environment_exists(env_name):
+            self.logger.error(f"Environment {env_name} does not exist")
+            return False
+        
+        # Check if package exists in environment
+        env_packages = self._environments[env_name].get("packages", [])
+        pkg_index = None
+        for i, pkg in enumerate(env_packages):
+            if pkg.get("name") == package_name:
+                pkg_index = i
+                break
+        
+        if pkg_index is None:
+            self.logger.warning(f"Package {package_name} not found in environment {env_name}")
+            return False
+        
+        # Remove package from filesystem
+        pkg_path = self.get_environment_path(env_name) / package_name
+        try:
+            import shutil
+            if pkg_path.exists():
+                shutil.rmtree(pkg_path)
+        except Exception as e:
+            self.logger.error(f"Failed to remove package files for {package_name}: {e}")
+            return False
+        
+        # Remove package from environment data
+        env_packages.pop(pkg_index)
+        self._save_environments()
+        
+        self.logger.info(f"Removed package {package_name} from environment {env_name}")
+        return True
