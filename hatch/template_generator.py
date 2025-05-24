@@ -4,7 +4,9 @@ Template Generator for Hatch packages.
 This module contains functions to generate template files for Hatch MCP server packages.
 Each function generates a specific file for the package template.
 """
+import json
 import logging
+from pathlib import Path
 
 logger = logging.getLogger("hatch.template_generator")
 
@@ -104,3 +106,45 @@ def generate_readme_md(package_name: str, description: str = ""):
 
 - **example_tool**: Example tool function
 """
+
+def create_package_template(target_dir: Path, package_name: str, category: str = "", description: str = "") -> Path:
+    """
+    Creates a package template directory with all necessary files.
+    
+    Args:
+        target_dir: Directory where the package should be created
+        package_name: Name of the package
+        category: Package category (optional)
+        description: Package description (optional)
+        
+    Returns:
+        Path: Path to the created package directory
+    """
+    logger.info(f"Creating package template for {package_name} in {target_dir}")
+    
+    # Create package directory
+    package_dir = target_dir / package_name
+    package_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create __init__.py
+    init_content = generate_init_py()
+    with open(package_dir / "__init__.py", 'w') as f:
+        f.write(init_content)
+    
+    # Create server.py
+    server_content = generate_server_py(package_name)
+    with open(package_dir / "server.py", 'w') as f:
+        f.write(server_content)
+    
+    # Create metadata.json
+    metadata = generate_metadata_json(package_name, category, description)
+    with open(package_dir / "hatch_metadata.json", 'w') as f:
+        json.dump(metadata, f, indent=2)
+    
+    # Create README.md
+    readme_content = generate_readme_md(package_name, description)
+    with open(package_dir / "README.md", 'w') as f:
+        f.write(readme_content)
+    
+    logger.info(f"Package template created successfully at {package_dir}")
+    return package_dir
