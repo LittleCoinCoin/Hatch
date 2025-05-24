@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from hatch_validator import HatchPackageValidator
 from .registry_retriever import RegistryRetriever
 from .package_loader import HatchPackageLoader, PackageLoaderError
-from .registry_explorer import find_package, get_package_release_url
+from .registry_explorer import find_package, find_package_version, get_package_release_url
 
 
 class HatchEnvironmentError(Exception):
@@ -50,7 +50,7 @@ class HatchEnvironmentManager:
         self.logger.setLevel(logging.INFO)
         
         # Set up environment directories
-        self.environments_dir = Path(__file__).parent.parent / "envs"
+        self.environments_dir = Path.home() / ".hatch" / "envs"
         self.environments_dir.mkdir(exist_ok=True)
         
         self.environments_file = self.environments_dir / "environments.json"
@@ -305,10 +305,23 @@ class HatchEnvironmentManager:
         else:
             # For remote packages, there can only be remote dependencies
             package_name = package_path_or_name
-            package_version = version_constraint
+            if not version_constraint:
+                # Find package in registry data
+                package_registry_data = find_package(self.registry_data, package_name)
+                if not package_registry_data:
+                    self.logger.error(f"Package {package_name} not found in registry")
+                    return False
+                # Find the information about the package version    
+                package_version_data = find_package_version(package_registry_data, version_constraint)
+                if not package_version_data:
+                    self.logger.error(f"Package {package_name} with version constraint {version_constraint} not found in registry")
+                    return False
+                else:
+                    package_version = package_version_data.get("version")
+
             remote_deps = self.package_validator.dependency_resolver.get_full_package_dependencies(
                 package_name, package_version).get("dependencies", [])
-                  # Detect circular dependencies by analyzing currently installed packages
+                
         # and the package we're trying to install
         current_dependencies = []
         
@@ -406,12 +419,12 @@ class HatchEnvironmentManager:
                 # First, download the package to cache
                 package_registry_data = find_package(self.registry_data, dep['name'])     
                 self.logger.debug(f"Package registry data: {json.dumps(package_registry_data, indent=2)}")           
-                package_url = get_package_release_url(package_registry_data, dep["version_constraint"])
+                package_url, package_version = get_package_release_url(package_registry_data, dep["version_constraint"])
                 self.package_loader.install_remote_package(package_url,
                                                             dep["name"],
-                                                            dep["version_constraint"],
+                                                            package_version,
                                                             self.get_environment_path(env_name))
-                self._add_package_to_env_data(env_name, dep["name"], dep["version_constraint"], "remote", "registry")
+                self._add_package_to_env_data(env_name, dep["name"], package_version, "remote", "registry")
             except PackageLoaderError as e:
                 self.logger.error(f"Failed to install remote package {dep['name']}: {e}")
                 return False
@@ -436,8 +449,8 @@ class HatchEnvironmentManager:
                 if not package_registry_data:
                     self.logger.error(f"Package {package_path_or_name} not found in registry")
                     return False
-                    
-                package_url = get_package_release_url(package_registry_data, version_constraint)
+
+                package_url, package_version = get_package_release_url(package_registry_data, version_constraint)
                 if not package_url:
                     self.logger.error(f"Could not find release URL for package {package_path_or_name} with version constraint {version_constraint}")
                     return False
@@ -445,10 +458,10 @@ class HatchEnvironmentManager:
                 self.package_loader.install_remote_package(
                     package_url,
                     package_path_or_name,
-                    version_constraint,
+                    package_version,
                     self.get_environment_path(env_name)
                 )
-                self._add_package_to_env_data(env_name, package_path_or_name, version_constraint, "remote", "registry")
+                self._add_package_to_env_data(env_name, package_path_or_name, package_version, "remote", "registry")
         except PackageLoaderError as e:
             self.logger.error(f"Failed to install package {package_path_or_name}: {e}")
             return False
@@ -562,3 +575,84 @@ class HatchEnvironmentManager:
         env_path = self.environments_dir / env_name
         env_path.mkdir(exist_ok=True)
         return env_path
+    
+    def list_packages(self, env_name: Optional[str] = None) -> List[Dict]:
+        """
+        List all packages installed in an environment.
+        
+        Args:
+            env_name: Name of the environment (uses current if None)
+            
+        Returns:
+            List[Dict]: List of package information dictionaries
+            
+        Raises:
+            HatchEnvironmentError: If environment doesn't exist
+        """
+        env_name = env_name or self._current_env_name
+        if not self.environment_exists(env_name):
+            raise HatchEnvironmentError(f"Environment {env_name} does not exist")
+        
+        packages = []
+        for pkg in self._environments[env_name].get("packages", []):
+            # Add full package info including paths
+            pkg_info = pkg.copy()
+            pkg_info["path"] = str(self.get_environment_path(env_name) / pkg["name"])
+            # Check if the package is Hatch compliant (has hatch_metadata.json)
+            pkg_path = self.get_environment_path(env_name) / pkg["name"]
+            pkg_info["hatch_compliant"] = (pkg_path / "hatch_metadata.json").exists()
+            
+            # Add source information
+            pkg_info["source"] = {
+                "uri": pkg.get("source", "unknown"),
+                "path": str(pkg_path)
+            }
+            
+            packages.append(pkg_info)
+        
+        return packages
+    
+    def remove_package(self, package_name: str, env_name: Optional[str] = None) -> bool:
+        """
+        Remove a package from an environment.
+        
+        Args:
+            package_name: Name of the package to remove
+            env_name: Environment to remove from (uses current if None)
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        env_name = env_name or self._current_env_name
+        if not self.environment_exists(env_name):
+            self.logger.error(f"Environment {env_name} does not exist")
+            return False
+        
+        # Check if package exists in environment
+        env_packages = self._environments[env_name].get("packages", [])
+        pkg_index = None
+        for i, pkg in enumerate(env_packages):
+            if pkg.get("name") == package_name:
+                pkg_index = i
+                break
+        
+        if pkg_index is None:
+            self.logger.warning(f"Package {package_name} not found in environment {env_name}")
+            return False
+        
+        # Remove package from filesystem
+        pkg_path = self.get_environment_path(env_name) / package_name
+        try:
+            import shutil
+            if pkg_path.exists():
+                shutil.rmtree(pkg_path)
+        except Exception as e:
+            self.logger.error(f"Failed to remove package files for {package_name}: {e}")
+            return False
+        
+        # Remove package from environment data
+        env_packages.pop(pkg_index)
+        self._save_environments()
+        
+        self.logger.info(f"Removed package {package_name} from environment {env_name}")
+        return True

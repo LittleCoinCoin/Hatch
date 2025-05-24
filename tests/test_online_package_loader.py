@@ -10,7 +10,7 @@ from pathlib import Path
 # Add parent directory to path for direct testing
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from hatch.package_environments import HatchEnvironmentManager
+from hatch.environment_manager import HatchEnvironmentManager
 from hatch.package_loader import HatchPackageLoader, PackageLoaderError
 from hatch.registry_retriever import RegistryRetriever
 from hatch.registry_explorer import find_package, get_package_release_url

@@ -3,7 +3,8 @@ import logging
 import sys
 from pathlib import Path
 
-from package_manager import HatchPackageManager
+from .environment_manager import HatchEnvironmentManager
+from .template_generator import create_package_template
 
 def main():
     """Main entry point for Hatch CLI"""
@@ -59,26 +60,27 @@ def main():
     
     # Add package command
     pkg_add_parser = pkg_subparsers.add_parser("add", help="Add a package to the current environment")
-    pkg_add_parser.add_argument("package_dir", help="Path to package directory (absolute or relative)")
+    pkg_add_parser.add_argument("package_path_or_name", help="Path to package directory or name of the package")
+    pkg_add_parser.add_argument("--env", "-e", default=None, help="Environment name (default: current environment)")
+    pkg_add_parser.add_argument("--version", "-v", default=None, help="Version of the package (optional)")
     
     # Remove package command
     pkg_remove_parser = pkg_subparsers.add_parser("remove", help="Remove a package from the current environment")
     pkg_remove_parser.add_argument("package_name", help="Name of the package to remove")
+    pkg_remove_parser.add_argument("--env", "-e", default=None, help="Environment name (default: current environment)")
     
     # List packages command
     pkg_list_parser = pkg_subparsers.add_parser("list", help="List packages in an environment")
-    pkg_list_parser.add_argument("--env", "-e", help="Environment name (default: current environment)")
- 
-    # Parse arguments
+    pkg_list_parser.add_argument("--env", "-e", help="Environment name (default: current environment)")    # Parse arguments
     args = parser.parse_args()
     
-    # Initialize package manager
-    manager = HatchPackageManager()
+    # Initialize environment manager
+    env_manager = HatchEnvironmentManager()
     
     # Execute commands
     if args.command == "create":
         target_dir = Path(args.dir).resolve()
-        package_dir = manager.create_package_template(
+        package_dir = create_package_template(
             target_dir=target_dir,
             package_name=args.name,
             category=args.category,
@@ -89,7 +91,8 @@ def main():
     elif args.command == "validate":
         package_path = Path(args.package_dir).resolve()
         
-        is_valid = manager.validate_package(package_path)
+        # Use the validator from environment manager
+        is_valid, _ = env_manager.package_validator.validate_package(package_path)
         
         if is_valid:
             print(f"Package validation SUCCESSFUL: {package_path}")
@@ -97,10 +100,10 @@ def main():
         else:
             print(f"Package validation FAILED: {package_path}")
             return 1
-    
+        
     elif args.command == "env":
         if args.env_command == "create":
-            if manager.create_environment(args.name, args.description):
+            if env_manager.create_environment(args.name, args.description):
                 print(f"Environment created: {args.name}")
                 return 0
             else:
@@ -108,7 +111,7 @@ def main():
                 return 1
                 
         elif args.env_command == "remove":
-            if manager.remove_environment(args.name):
+            if env_manager.remove_environment(args.name):
                 print(f"Environment removed: {args.name}")
                 return 0
             else:
@@ -116,7 +119,7 @@ def main():
                 return 1
                 
         elif args.env_command == "list":
-            environments = manager.list_environments()
+            environments = env_manager.list_environments()
             print("Available environments:")
             for env in environments:
                 current_marker = "* " if env.get("is_current") else "  "
@@ -125,7 +128,7 @@ def main():
             return 0
             
         elif args.env_command == "use":
-            if manager.set_current_environment(args.name):
+            if env_manager.set_current_environment(args.name):
                 print(f"Current environment set to: {args.name}")
                 return 0
             else:
@@ -133,40 +136,38 @@ def main():
                 return 1
                 
         elif args.env_command == "current":
-            current_env = manager.get_current_environment()
+            current_env = env_manager.get_current_environment()
             print(f"Current environment: {current_env}")
             return 0
-            
         else:
             parser.print_help()
             return 1
-            
+        
     elif args.command == "package":
         if args.pkg_command == "add":
-            if manager.add_package(args.package_dir):
-                print(f"Package added successfully from: {args.package_dir}")
+            if env_manager.add_package_to_environment(args.package_path_or_name, args.env, args.version):
+                print(f"Successfully added package: {args.package_path_or_name}")
                 return 0
             else:
-                print(f"Failed to add package from: {args.package_dir}")
+                print(f"Failed to add package: {args.package_path_or_name}")
                 return 1
                 
         elif args.pkg_command == "remove":
-            if manager.remove_package(args.package_name):
-                print(f"Package removed: {args.package_name}")
+            if env_manager.remove_package(args.package_name, args.env):
+                print(f"Successfully removed package: {args.package_name}")
                 return 0
             else:
                 print(f"Failed to remove package: {args.package_name}")
                 return 1
                 
         elif args.pkg_command == "list":
-            env_name = args.env if args.env else manager.get_current_environment()
-            packages = manager.list_packages(env_name)
-            
+            packages = env_manager.list_packages(args.env)
+
             if not packages:
-                print(f"No packages found in environment: {env_name}")
+                print(f"No packages found in environment: {args.env}")
                 return 0
-                
-            print(f"Packages in environment '{env_name}':")
+
+            print(f"Packages in environment '{args.env}':")
             for pkg in packages:
                 print(f"{pkg['name']} ({pkg['version']})\tHatch compliant: {pkg['hatch_compliant']}\tsource: {pkg['source']['uri']}\tlocation: {pkg['source']['path']}")
             return 0
