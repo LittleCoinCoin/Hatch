@@ -679,6 +679,6 @@ class HatchEnvironmentManager:
                 hatch_metadata = json.load(f)
 
             # retrieve entry points
-            ep += [hatch_metadata.get("entry_point", [])]
+            ep += [(self.environments_dir / env_name / pkg["name"] / hatch_metadata.get("entry_point")).resolve()]
 
         return ep
