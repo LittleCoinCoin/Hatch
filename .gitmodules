@@ -1,3 +1,0 @@
-[submodule "ext/Hatch-Validator"]
-	path = ext/Hatch-Validator
-	url = https://github.com/CrackingShells/Hatch-Validator.git
