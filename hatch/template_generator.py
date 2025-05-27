@@ -51,29 +51,30 @@ if __name__ == "__main__":
     hatch_mcp.server.run()
 """
 
-def generate_metadata_json(package_name: str, category: str = "", description: str = ""):
+def generate_metadata_json(package_name: str, description: str = ""):
     """
     Generate the metadata JSON content for a template package.
     
     Args:
         package_name: Name of the package
-        category: Package category
         description: Package description
         
     Returns:
         dict: Metadata dictionary
     """
     return {
+        "package_schema_version": "1.1.0",
         "name": package_name,
         "version": "0.1.0",
-        "description": description,
-        "category": category,
+        "description": description or f"A Hatch package for {package_name}",
         "tags": [],
         "author": {
             "name": "Hatch User",
             "email": ""
         },
-        "license": "MIT",
+        "license": {
+            "name": "MIT"
+        },
         "entry_point": "server.py",
         "tools": [
             {
@@ -107,14 +108,13 @@ def generate_readme_md(package_name: str, description: str = ""):
 - **example_tool**: Example tool function
 """
 
-def create_package_template(target_dir: Path, package_name: str, category: str = "", description: str = "") -> Path:
+def create_package_template(target_dir: Path, package_name: str, description: str = "") -> Path:
     """
     Creates a package template directory with all necessary files.
     
     Args:
         target_dir: Directory where the package should be created
         package_name: Name of the package
-        category: Package category (optional)
         description: Package description (optional)
         
     Returns:
@@ -137,7 +137,7 @@ def create_package_template(target_dir: Path, package_name: str, category: str =
         f.write(server_content)
     
     # Create metadata.json
-    metadata = generate_metadata_json(package_name, category, description)
+    metadata = generate_metadata_json(package_name, description)
     with open(package_dir / "hatch_metadata.json", 'w') as f:
         json.dump(metadata, f, indent=2)
     
