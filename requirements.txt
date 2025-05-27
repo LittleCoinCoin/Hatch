@@ -1,3 +1,0 @@
-jsonschema>=4.17.3
-packaging
-./ext/Hatch-Validator

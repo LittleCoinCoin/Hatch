@@ -657,3 +657,28 @@ class HatchEnvironmentManager:
         
         self.logger.info(f"Removed package {package_name} from environment {env_name}")
         return True
+
+    def get_servers_entry_points(self, env_name: Optional[str] = None) -> List[str]:
+        """
+        Get the list of entry points for the MCP servers of each package in an environment.
+        
+        Args:
+            env_name: Environment to get servers from (uses current if None)
+            
+        Returns:
+            List[str]: List of server entry points
+        """
+        env_name = env_name or self._current_env_name
+        if not self.environment_exists(env_name):
+            raise HatchEnvironmentError(f"Environment {env_name} does not exist")
+        
+        ep = []
+        for pkg in self._environments[env_name].get("packages", []):
+            # Open the package's metadata file
+            with open(self.environments_dir / env_name / pkg["name"] / "hatch_metadata.json", 'r') as f:
+                hatch_metadata = json.load(f)
+
+            # retrieve entry points
+            ep += [(self.environments_dir / env_name / pkg["name"] / hatch_metadata.get("entry_point")).resolve()]
+
+        return ep
