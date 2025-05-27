@@ -22,7 +22,6 @@ def main():
     create_parser = subparsers.add_parser("create", help="Create a new package template")
     create_parser.add_argument("name", help="Package name")
     create_parser.add_argument("--dir", "-d", default=".", help="Target directory (default: current directory)")
-    create_parser.add_argument("--category", "-c", default="", help="Package category")
     create_parser.add_argument("--description", "-D", default="", help="Package description")
     
     # Validate package command
@@ -93,7 +92,6 @@ def main():
         package_dir = create_package_template(
             target_dir=target_dir,
             package_name=args.name,
-            category=args.category,
             description=args.description
         )
         print(f"Package template created at: {package_dir}")
