@@ -70,11 +70,11 @@ class HatchEnvironmentManager:
         self.package_loader = HatchPackageLoader(cache_dir=cache_dir)
 
         # Get dependency resolver from imported module
-        retriever = RegistryRetriever(cache_ttl=cache_ttl,
+        self.retriever = RegistryRetriever(cache_ttl=cache_ttl,
                                       local_cache_dir=cache_dir,
                                       simulation_mode=simulation_mode,
                                       local_registry_cache_path=local_registry_cache_path)
-        self.registry_data = retriever.get_registry()
+        self.registry_data = self.retriever.get_registry()
         self.package_validator = HatchPackageValidator(registry_data=self.registry_data)
         self.dependency_resolver = self.package_validator.dependency_resolver
 
@@ -271,7 +271,9 @@ class HatchEnvironmentManager:
     
     def add_package_to_environment(self, package_path_or_name: str, 
                                   env_name: Optional[str] = None, 
-                                  version_constraint: Optional[str] = None) -> bool:
+                                  version_constraint: Optional[str] = None,
+                                  force_download: bool = False,
+                                  refresh_registry: bool = False) -> bool:
         """Add a package to an environment.
         
         This complex method handles the process of adding either a local or remote package 
@@ -287,10 +289,17 @@ class HatchEnvironmentManager:
             package_path_or_name (str): Path to local package or name of remote package.
             env_name (str, optional): Environment to add to. Defaults to current environment.
             version_constraint (str, optional): Version constraint for remote packages. Defaults to None.
+            force_download (bool, optional): Force download even if package is cached. When True, 
+                bypass the package cache and download directly from the source. Defaults to False.
+            refresh_registry (bool, optional): Force refresh of registry data. When True, 
+                fetch the latest registry data before resolving dependencies. Defaults to False.
             
         Returns:
             bool: True if successful, False otherwise.
-        """
+        """        # Refresh registry if requested or if force_download is specified
+        if refresh_registry or force_download:
+            self.refresh_registry(force_refresh=True)
+            
         env_name = env_name or self._current_env_name
         if not self.environment_exists(env_name):
             self.logger.error(f"Environment {env_name} does not exist")
@@ -425,12 +434,13 @@ class HatchEnvironmentManager:
             try:
                 # First, download the package to cache
                 package_registry_data = find_package(self.registry_data, dep['name'])     
-                self.logger.debug(f"Package registry data: {json.dumps(package_registry_data, indent=2)}")           
+                self.logger.debug(f"Package registry data: {json.dumps(package_registry_data, indent=2)}")
                 package_url, package_version = get_package_release_url(package_registry_data, dep["version_constraint"])
                 self.package_loader.install_remote_package(package_url,
                                                             dep["name"],
                                                             package_version,
-                                                            self.get_environment_path(env_name))
+                                                            self.get_environment_path(env_name),
+                                                            force_download)
                 self._add_package_to_env_data(env_name, dep["name"], package_version, "remote", "registry")
             except PackageLoaderError as e:
                 self.logger.error(f"Failed to install remote package {dep['name']}: {e}")
@@ -461,12 +471,12 @@ class HatchEnvironmentManager:
                 if not package_url:
                     self.logger.error(f"Could not find release URL for package {package_path_or_name} with version constraint {version_constraint}")
                     return False
-                    
                 self.package_loader.install_remote_package(
                     package_url,
                     package_path_or_name,
                     package_version,
-                    self.get_environment_path(env_name)
+                    self.get_environment_path(env_name),
+                    force_download
                 )
                 self._add_package_to_env_data(env_name, package_path_or_name, package_version, "remote", "registry")
         except PackageLoaderError as e:
@@ -694,3 +704,35 @@ class HatchEnvironmentManager:
             ep += [(self.environments_dir / env_name / pkg["name"] / hatch_metadata.get("entry_point")).resolve()]
 
         return ep
+
+    def refresh_registry(self, force_refresh: bool = True) -> None:
+        """Refresh the registry data from the source.
+        
+        This method forces a refresh of the registry data to ensure the environment manager
+        has the most recent package information available. After refreshing, it updates the
+        associated validators and resolvers to use the new registry data.
+        
+        The refresh process follows these steps:
+        1. Fetch the latest registry data from the configured source
+        2. Update the internal registry_data cache
+        3. Recreate the package validator with the new data
+        4. Update the dependency resolver reference
+        
+        Args:
+            force_refresh (bool, optional): Force refresh the registry even if cache is valid.
+                When True, bypasses all caching mechanisms and fetches directly from source.
+                Defaults to True.
+                
+        Raises:
+            Exception: If fetching the registry data fails for any reason.
+        """
+        self.logger.info("Refreshing registry data...")
+        try:
+            self.registry_data = self.retriever.get_registry(force_refresh=force_refresh)
+            # Update package validator with new registry data
+            self.package_validator = HatchPackageValidator(registry_data=self.registry_data)
+            self.dependency_resolver = self.package_validator.dependency_resolver
+            self.logger.info("Registry data refreshed successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to refresh registry data: {e}")
+            raise
