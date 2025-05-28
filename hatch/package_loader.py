@@ -53,7 +53,7 @@ class HatchPackageLoader:
             return pkg_path
         return None
     
-    def download_package(self, package_url: str, package_name: str, version: str) -> Path:
+    def download_package(self, package_url: str, package_name: str, version: str, force_download: bool = False) -> Path:
         """Download a package from a URL and cache it.
         
         This method handles the complete download process including:
@@ -64,10 +64,16 @@ class HatchPackageLoader:
         5. Validating the package structure
         6. Moving the package to the cache directory
         
+        When force_download is True, the method will always download the package directly
+        from the source, even if it's already cached. This is useful when you want to ensure
+        you have the latest version of a package. When used with registry refresh, it ensures
+        both the package metadata and the actual package content are up to date.
+        
         Args:
             package_url (str): URL to download the package from.
             package_name (str): Name of the package.
             version (str): Version of the package.
+            force_download (bool, optional): Force download even if package is cached. Defaults to False.
             
         Returns:
             Path: Path to the downloaded package directory.
@@ -77,9 +83,12 @@ class HatchPackageLoader:
         """
         # Check if already cached
         cached_path = self._get_package_path(package_name, version)
-        if cached_path:
+        if cached_path and not force_download:
             self.logger.info(f"Using cached package {package_name} v{version}")
             return cached_path
+        
+        if cached_path and force_download:
+            self.logger.info(f"Force download requested. Downloading {package_name} v{version} from {package_url}")
             
         # Create temporary directory for download
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -178,14 +187,19 @@ class HatchPackageLoader:
             raise PackageLoaderError(f"Failed to install local package: {e}")
     
     def install_remote_package(self, package_url: str, package_name: str, 
-                               version: str, target_dir: Path) -> Path:
+                               version: str, target_dir: Path, force_download: bool = False) -> Path:
         """Download and install a remote package.
+        
+        This method handles downloading a package from a remote URL and installing it
+        into the specified target directory. It leverages the download_package method
+        which includes caching functionality, but allows forcing a fresh download when needed.
         
         Args:
             package_url (str): URL to download the package from.
             package_name (str): Name of the package.
             version (str): Version of the package.
             target_dir (Path): Directory to install the package to.
+            force_download (bool, optional): Force download even if package is cached. Defaults to False.
             
         Returns:
             Path: Path to the installed package.
@@ -195,7 +209,7 @@ class HatchPackageLoader:
         """
 
         try:
-            cached_path = self.download_package(package_url, package_name, version)
+            cached_path = self.download_package(package_url, package_name, version, force_download)
             # Install from cache to target dir
             target_path = target_dir / package_name
             
