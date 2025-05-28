@@ -1,5 +1,4 @@
-"""
-Environment Manager for Hatch package system.
+"""Environment Manager for Hatch package system.
 
 This module provides the core functionality for managing isolated environments
 for Hatch packages.
@@ -22,8 +21,7 @@ class HatchEnvironmentError(Exception):
 
 
 class HatchEnvironmentManager:
-    """
-    Manages Hatch environments for package installation and isolation.
+    """Manages Hatch environments for package installation and isolation.
     
     This class handles:
     1. Creating and managing isolated environments
@@ -40,11 +38,11 @@ class HatchEnvironmentManager:
         """Initialize the Hatch environment manager.
         
         Args:
-            environments_dir: Directory to store environments (default: ~/.hatch/envs)
-            cache_ttl: Time-to-live for cache in seconds
-            cache_dir: Directory to store local cache files (default: ~/.hatch)
-            simulation_mode: Whether to operate in local simulation mode
-            local_registry_cache_path: Path to local registry file (for simulation mode)
+            environments_dir (Path, optional): Directory to store environments. Defaults to ~/.hatch/envs.
+            cache_ttl (int): Time-to-live for cache in seconds. Defaults to 86400 (24 hours).
+            cache_dir (Path, optional): Directory to store local cache files. Defaults to ~/.hatch.
+            simulation_mode (bool): Whether to operate in local simulation mode. Defaults to False.
+            local_registry_cache_path (Path, optional): Path to local registry file. Defaults to None.
         
         """
 
@@ -274,16 +272,24 @@ class HatchEnvironmentManager:
     def add_package_to_environment(self, package_path_or_name: str, 
                                   env_name: Optional[str] = None, 
                                   version_constraint: Optional[str] = None) -> bool:
-        """
-        Add a package to an environment.
+        """Add a package to an environment.
+        
+        This complex method handles the process of adding either a local or remote package 
+        to an environment, including dependency resolution and installation. It performs 
+        the following steps:
+        1. Determines if the package is local or remote
+        2. Gets package metadata and dependencies
+        3. Checks for circular dependencies
+        4. Installs missing dependencies 
+        5. Installs the main package
         
         Args:
-            package_path_or_name: Path to local package or name of remote package
-            env_name: Environment to add to (uses current if None)
-            version_constraint: Version constraint for remote packages
+            package_path_or_name (str): Path to local package or name of remote package.
+            env_name (str, optional): Environment to add to. Defaults to current environment.
+            version_constraint (str, optional): Version constraint for remote packages. Defaults to None.
             
         Returns:
-            bool: True if successful, False otherwise
+            bool: True if successful, False otherwise.
         """
         env_name = env_name or self._current_env_name
         if not self.environment_exists(env_name):
@@ -471,11 +477,17 @@ class HatchEnvironmentManager:
 
     def _get_deps_from_all_local_packages(self, hatch_dependencies: List[Dict]) -> Tuple[List[Dict], List[str]]:
         """Retrieves the local and remote dependencies from the hatch_dependencies list of a package.
-
+        
+        This method uses a breadth-first search approach to gather all dependencies,
+        separating them into local and remote categories.
+        
         Args:
-            hatch_dependencies: List of dependencies from the package's metadata
+            hatch_dependencies: List of dependencies from the package's metadata.
+            
         Returns:
-            Tuple of local and remote dependencies
+            Tuple[List[Dict], List[str]]: A tuple containing:
+                - List of local dependencies with path information
+                - List of remote dependencies with version constraints
         """
         deps_queue = hatch_dependencies.copy()
         local_deps = []
