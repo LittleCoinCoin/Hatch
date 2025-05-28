@@ -296,7 +296,9 @@ class HatchEnvironmentManager:
             
         Returns:
             bool: True if successful, False otherwise.
-        """        # Refresh registry if requested or if force_download is specified
+        """        
+        
+        # Refresh registry if requested or if force_download is specified
         if refresh_registry or force_download:
             self.refresh_registry(force_refresh=True)
             
