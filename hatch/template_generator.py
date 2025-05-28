@@ -11,18 +11,21 @@ from pathlib import Path
 logger = logging.getLogger("hatch.template_generator")
 
 def generate_init_py():
-    """Generate the __init__.py file content for a template package."""
+    """Generate the __init__.py file content for a template package.
+    
+    Returns:
+        str: Content for __init__.py file.
+    """
     return "# Hatch package initialization\n"
 
 def generate_server_py(package_name: str):
-    """
-    Generate the server.py file content for a template package.
+    """Generate the server.py file content for a template package.
     
     Args:
-        package_name: Name of the package
+        package_name (str): Name of the package.
         
     Returns:
-        str: Content for server.py
+        str: Content for server.py file.
     """
     return f"""import logging
 from hatchling import HatchMCP
@@ -52,15 +55,14 @@ if __name__ == "__main__":
 """
 
 def generate_metadata_json(package_name: str, description: str = ""):
-    """
-    Generate the metadata JSON content for a template package.
+    """Generate the metadata JSON content for a template package.
     
     Args:
-        package_name: Name of the package
-        description: Package description
+        package_name (str): Name of the package.
+        description (str, optional): Package description. Defaults to empty string.
         
     Returns:
-        dict: Metadata dictionary
+        dict: Metadata dictionary.
     """
     return {
         "package_schema_version": "1.1.0",
@@ -89,15 +91,14 @@ def generate_metadata_json(package_name: str, description: str = ""):
     }
 
 def generate_readme_md(package_name: str, description: str = ""):
-    """
-    Generate the README.md file content for a template package.
+    """Generate the README.md file content for a template package.
     
     Args:
-        package_name: Name of the package
-        description: Package description
+        package_name (str): Name of the package.
+        description (str, optional): Package description. Defaults to empty string.
         
     Returns:
-        str: Content for README.md
+        str: Content for README.md file.
     """
     return f"""# {package_name}
 
@@ -109,16 +110,22 @@ def generate_readme_md(package_name: str, description: str = ""):
 """
 
 def create_package_template(target_dir: Path, package_name: str, description: str = "") -> Path:
-    """
-    Creates a package template directory with all necessary files.
+    """Create a package template directory with all necessary files.
+    
+    This function orchestrates the generation of a complete package structure by:
+    1. Creating the package directory
+    2. Generating and writing the __init__.py file
+    3. Generating and writing the server.py file with example tools
+    4. Creating the hatch_metadata.json with package information
+    5. Generating a README.md with basic documentation
     
     Args:
-        target_dir: Directory where the package should be created
-        package_name: Name of the package
-        description: Package description (optional)
+        target_dir (Path): Directory where the package should be created.
+        package_name (str): Name of the package.
+        description (str, optional): Package description. Defaults to empty string.
         
     Returns:
-        Path: Path to the created package directory
+        Path: Path to the created package directory.
     """
     logger.info(f"Creating package template for {package_name} in {target_dir}")
     

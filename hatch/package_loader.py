@@ -1,3 +1,9 @@
+"""Package loader for Hatch.
+
+This module provides functionality to download, cache, and install Hatch packages
+from various sources to designated target directories.
+"""
+
 import logging
 import shutil
 import tempfile
@@ -13,12 +19,15 @@ class PackageLoaderError(Exception):
 
 
 class HatchPackageLoader:
+    """Manages the downloading, caching, and installation of Hatch packages."""
+    
     def __init__(self, cache_dir: Optional[Path] = None):
         """Initialize the Hatch package loader.
 
         Args:
-            cache_dir: Directory to of all cached files for Hatch. Packages will then be at
-            <cache_dir>/packages. If none is provided, it will default to ~/.hatch/packages.
+            cache_dir (Path, optional): Directory to store cached files for Hatch.
+                Packages will be stored at <cache_dir>/packages.
+                Defaults to ~/.hatch/packages.
         """
         self.logger = logging.getLogger("hatch.package_loader")
         self.logger.setLevel(logging.INFO)
@@ -30,15 +39,14 @@ class HatchPackageLoader:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         
     def _get_package_path(self, package_name: str, version: str) -> Optional[Path]:
-        """
-        Get path to a cached package, if it exists.
+        """Get path to a cached package, if it exists.
         
         Args:
-            package_name: Name of the package
-            version: Version of the package
+            package_name (str): Name of the package.
+            version (str): Version of the package.
             
         Returns:
-            Path to cached package or None if not cached
+            Optional[Path]: Path to cached package or None if not cached.
         """
         pkg_path = self.cache_dir / f"{package_name}-{version}"
         if pkg_path.exists() and pkg_path.is_dir():
@@ -46,19 +54,26 @@ class HatchPackageLoader:
         return None
     
     def download_package(self, package_url: str, package_name: str, version: str) -> Path:
-        """
-        Download a package from a URL and cache it.
+        """Download a package from a URL and cache it.
+        
+        This method handles the complete download process including:
+        1. Checking if the package is already cached
+        2. Creating a temporary directory for download
+        3. Downloading the package from the URL
+        4. Extracting the zip file
+        5. Validating the package structure
+        6. Moving the package to the cache directory
         
         Args:
-            package_url: URL to download the package from
-            package_name: Name of the package
-            version: Version of the package
+            package_url (str): URL to download the package from.
+            package_name (str): Name of the package.
+            version (str): Version of the package.
             
         Returns:
-            Path to the downloaded package directory
+            Path: Path to the downloaded package directory.
             
         Raises:
-            PackageLoaderError: If download or extraction fails
+            PackageLoaderError: If download or extraction fails.
         """
         # Check if already cached
         cached_path = self._get_package_path(package_name, version)
@@ -118,18 +133,17 @@ class HatchPackageLoader:
                 raise PackageLoaderError(f"Error downloading package: {e}")
     
     def copy_package(self, source_path: Path, target_path: Path) -> bool:
-        """
-        Copy a package from source to target directory.
+        """Copy a package from source to target directory.
         
         Args:
-            source_path: Source directory path
-            target_path: Target directory path
+            source_path (Path): Source directory path.
+            target_path (Path): Target directory path.
             
         Returns:
-            bool: True if successful
+            bool: True if successful.
             
         Raises:
-            PackageLoaderError: If copy fails
+            PackageLoaderError: If copy fails.
         """
         try:
             if target_path.exists():
@@ -141,19 +155,18 @@ class HatchPackageLoader:
             raise PackageLoaderError(f"Failed to copy package: {e}")
     
     def install_local_package(self, source_path: Path, target_dir: Path, package_name: str) -> Path:
-        """
-        Install a local package to the target directory.
+        """Install a local package to the target directory.
         
         Args:
-            source_path: Path to the source package directory
-            target_dir: Directory to install the package to
-            package_name: Name of the package for the target directory
+            source_path (Path): Path to the source package directory.
+            target_dir (Path): Directory to install the package to.
+            package_name (str): Name of the package for the target directory.
             
         Returns:
-            Path: Path to the installed package
+            Path: Path to the installed package.
             
         Raises:
-            PackageLoaderError: If installation fails
+            PackageLoaderError: If installation fails.
         """
         target_path = target_dir / package_name
         
@@ -166,20 +179,19 @@ class HatchPackageLoader:
     
     def install_remote_package(self, package_url: str, package_name: str, 
                                version: str, target_dir: Path) -> Path:
-        """
-        Download and install a remote package.
+        """Download and install a remote package.
         
         Args:
-            package_url: URL to download the package from
-            package_name: Name of the package
-            version: Version of the package
-            target_dir: Directory to install the package to
+            package_url (str): URL to download the package from.
+            package_name (str): Name of the package.
+            version (str): Version of the package.
+            target_dir (Path): Directory to install the package to.
             
         Returns:
-            Path: Path to the installed package
+            Path: Path to the installed package.
             
         Raises:
-            PackageLoaderError: If installation fails
+            PackageLoaderError: If installation fails.
         """
 
         try:
@@ -202,15 +214,14 @@ class HatchPackageLoader:
             raise PackageLoaderError(f"Failed to install remote package {package_name} from {package_url}: {e}")
     
     def clear_cache(self, package_name: Optional[str] = None, version: Optional[str] = None) -> bool:
-        """
-        Clear the package cache.
+        """Clear the package cache.
         
         Args:
-            package_name: Name of specific package to clear (or None for all)
-            version: Version of specific package to clear (or None for all versions)
+            package_name (str, optional): Name of specific package to clear. Defaults to None (all packages).
+            version (str, optional): Version of specific package to clear. Defaults to None (all versions).
             
         Returns:
-            bool: True if successful
+            bool: True if successful.
         """
         try:
             if package_name and version:

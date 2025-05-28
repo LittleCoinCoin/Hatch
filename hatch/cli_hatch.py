@@ -1,3 +1,12 @@
+"""Command-line interface for the Hatch package manager.
+
+This module provides the CLI functionality for Hatch, allowing users to:
+- Create new package templates
+- Validate packages
+- Manage environments
+- Manage packages within environments
+"""
+
 import argparse
 import logging
 import sys
@@ -7,7 +16,17 @@ from .environment_manager import HatchEnvironmentManager
 from .template_generator import create_package_template
 
 def main():
-    """Main entry point for Hatch CLI"""
+    """Main entry point for Hatch CLI.
+    
+    Parses command-line arguments and executes the requested commands for:
+    - Package template creation
+    - Package validation 
+    - Environment management (create, remove, list, use, current)
+    - Package management (add, remove, list)
+    
+    Returns:
+        int: Exit code (0 for success, 1 for errors)
+    """
     # Configure logging
     logging.basicConfig(
         level=logging.INFO,

@@ -1,5 +1,7 @@
-"""
-Utilities for exploring a Hatch package registry (see hatch_all_pkg_metadata_schema.json).
+"""Utilities for exploring a Hatch package registry.
+
+This module provides functions to search and extract information from
+a Hatch registry data structure (see hatch_all_pkg_metadata_schema.json).
 """
 import re
 from typing import Any, Dict, List, Optional, Tuple
@@ -7,8 +9,14 @@ from packaging.version import Version, InvalidVersion
 from packaging.specifiers import SpecifierSet, InvalidSpecifier
 
 def find_repository(registry: Dict[str, Any], repo_name: str) -> Optional[Dict[str, Any]]:
-    """
-    Find a repository by name.
+    """Find a repository by name.
+    
+    Args:
+        registry (Dict[str, Any]): The registry data.
+        repo_name (str): Name of the repository to find.
+        
+    Returns:
+        Optional[Dict[str, Any]]: Repository data if found, None otherwise.
     """
     for repo in registry.get("repositories", []):
         if repo.get("name") == repo_name:
@@ -16,14 +24,26 @@ def find_repository(registry: Dict[str, Any], repo_name: str) -> Optional[Dict[s
     return None
 
 def list_repositories(registry: Dict[str, Any]) -> List[str]:
-    """
-    List all repository names in the registry.
+    """List all repository names in the registry.
+    
+    Args:
+        registry (Dict[str, Any]): The registry data.
+        
+    Returns:
+        List[str]: List of repository names.
     """
     return [repo.get("name") for repo in registry.get("repositories", [])]
 
 def find_package(registry: Dict[str, Any], package_name: str, repo_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    """
-    Find a package by name, optionally within a specific repository.
+    """Find a package by name, optionally within a specific repository.
+    
+    Args:
+        registry (Dict[str, Any]): The registry data.
+        package_name (str): Name of the package to find.
+        repo_name (str, optional): Name of the repository to search in. Defaults to None.
+        
+    Returns:
+        Optional[Dict[str, Any]]: Package data if found, None otherwise.
     """
     repos = registry.get("repositories", [])
     if repo_name:
@@ -35,8 +55,14 @@ def find_package(registry: Dict[str, Any], package_name: str, repo_name: Optiona
     return None
 
 def list_packages(registry: Dict[str, Any], repo_name: Optional[str] = None) -> List[str]:
-    """
-    List all package names, optionally within a specific repository.
+    """List all package names, optionally within a specific repository.
+    
+    Args:
+        registry (Dict[str, Any]): The registry data.
+        repo_name (str, optional): Name of the repository to list packages from. Defaults to None.
+        
+    Returns:
+        List[str]: List of package names.
     """
     packages = []
     repos = registry.get("repositories", [])
@@ -48,16 +74,28 @@ def list_packages(registry: Dict[str, Any], repo_name: Optional[str] = None) -> 
     return packages
 
 def get_latest_version(pkg: Dict[str, Any]) -> Optional[str]:
-    """
-    Get the latest version string for a package dict.
+    """Get the latest version string for a package dict.
+    
+    Args:
+        pkg (Dict[str, Any]): The package dictionary.
+        
+    Returns:
+        Optional[str]: Latest version string if available, None otherwise.
     """
     return pkg.get("latest_version")
 
 def _match_version_constraint(version: str, constraint: str) -> bool:
-    """
-    Check if a version string matches a constraint (e.g., '>=1.2.0').
+    """Check if a version string matches a constraint.
+    
     Uses the 'packaging' library for robust version comparison.
     If a simple version like "1.0.0" is passed as constraint, it's treated as "==1.0.0".
+    
+    Args:
+        version (str): Version string to check.
+        constraint (str): Version constraint (e.g., '>=1.2.0').
+        
+    Returns:
+        bool: True if version matches constraint, False otherwise.
     """
     try:
         v = Version(version)
@@ -74,17 +112,19 @@ def _match_version_constraint(version: str, constraint: str) -> bool:
         return version == constraint
 
 def find_package_version(pkg: Dict[str, Any], version_constraint: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    """
-    Find a version dict for a package, optionally matching a version constraint.
-    If no constraint is given, returns the latest version.
-
+    """Find a version dict for a package, optionally matching a version constraint.
+    
+    This function uses a multi-step approach to find the appropriate version:
+    1. If no constraint is given, it returns the latest version
+    2. If that's not found, it falls back to the highest version number
+    3. For specific constraints, it sorts versions and checks compatibility
+    
     Args:
         pkg (Dict[str, Any]): The package dictionary.
-        version_constraint (Optional[str]): A version constraint string (e.g., '>=1.2.0').
+        version_constraint (str, optional): A version constraint string (e.g., '>=1.2.0'). Defaults to None.
 
     Returns:
         Optional[Dict[str, Any]]: The version dict matching the constraint or latest version.
-
     """
     versions = pkg.get("versions", [])
     if not versions:
@@ -112,14 +152,16 @@ def find_package_version(pkg: Dict[str, Any], version_constraint: Optional[str] 
     return None
 
 def get_package_release_url(pkg: Dict[str, Any], version_constraint: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
-    """
-    Get the release URI for a package version matching the constraint (or latest).
+    """Get the release URI for a package version matching the constraint (or latest).
 
     Args:
         pkg (Dict[str, Any]): The package dictionary.
-        version_constraint (Optional[str]): A version constraint string (e.g., '>=1.2.0').
+        version_constraint (str, optional): A version constraint string (e.g., '>=1.2.0'). Defaults to None.
+        
     Returns:
-        Tuple[Optional[str], Optional[str]]: A tuple containing the release URI and version string satisfying the constraint.
+        Tuple[Optional[str], Optional[str]]: A tuple containing:
+            - str: The release URI satisfying the constraint (or None)
+            - str: The matching version string (or None)
     """
     if pkg is None:
         return None, None

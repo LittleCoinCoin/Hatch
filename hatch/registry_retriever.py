@@ -1,18 +1,23 @@
-#!/usr/bin/env python3
+"""Registry retriever for Hatch package management.
+
+This module provides functionality to retrieve and manage the Hatch package registry,
+supporting both online and simulation modes with caching at file system and in-memory levels.
+"""
+
 import os
 import json
 import logging
 import requests
 import hashlib
 import time
-import datetime  # Add missing import for datetime
+import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 class RegistryRetriever:
-    """
-    Class to retrieve and manage the Hatch package registry.
+    """Manages the retrieval and caching of the Hatch package registry.
+    
     Provides caching at file system level and in-memory level.
     Works in both local simulation and online GitHub environments.
     """
@@ -24,14 +29,13 @@ class RegistryRetriever:
         simulation_mode: bool = False,  # Set to True when running in local simulation mode
         local_registry_cache_path: Optional[Path] = None
     ):
-        """
-        Initialize the registry retriever.
+        """Initialize the registry retriever.
         
         Args:
-            local_cache_dir: Directory to store local cache files (default: ~/.hatch, the registry will be in ~/.hatch/registry)
-            cache_ttl: Time-to-live for cache in seconds
-            simulation_mode: Whether to operate in local simulation mode. Can be useful during development or debugging.
-            local_registry_cache_path: Path to local registry file (for simulation mode)
+            cache_ttl (int): Time-to-live for cache in seconds. Defaults to 86400 (24 hours).
+            local_cache_dir (Path, optional): Directory to store local cache files. Defaults to ~/.hatch.
+            simulation_mode (bool): Whether to operate in local simulation mode. Defaults to False.
+            local_registry_cache_path (Path, optional): Path to local registry file. Defaults to None.
         """
         self.logger = logging.getLogger('hatch.registry_retriever')
         self.cache_ttl = cache_ttl
@@ -66,7 +70,14 @@ class RegistryRetriever:
         self._last_fetch_time = 0
     
     def _read_local_cache(self) -> Dict[str, Any]:
-        """Read the registry from local cache file."""
+        """Read the registry from local cache file.
+        
+        Returns:
+            Dict[str, Any]: Registry data from cache.
+            
+        Raises:
+            Exception: If reading the cache file fails.
+        """
         try:
             with open(self.registry_cache_path, 'r') as f:
                 return json.load(f)
@@ -75,7 +86,11 @@ class RegistryRetriever:
             raise e
     
     def _write_local_cache(self, registry_data: Dict[str, Any]) -> None:
-        """Write the registry data to local cache file."""
+        """Write the registry data to local cache file.
+        
+        Args:
+            registry_data (Dict[str, Any]): Registry data to cache.
+        """
         try:
             with open(self.registry_cache_path, 'w') as f:
                 json.dump(registry_data, f, indent=2)
@@ -83,7 +98,14 @@ class RegistryRetriever:
             self.logger.error(f"Failed to write local cache: {e}")
     
     def _fetch_remote_registry(self) -> Dict[str, Any]:
-        """Fetch registry data from remote URL (online mode)"""
+        """Fetch registry data from remote URL.
+        
+        Returns:
+            Dict[str, Any]: Registry data from remote source.
+            
+        Raises:
+            Exception: If fetching the remote registry fails.
+        """
         try:
             self.logger.info(f"Fetching registry from {self.registry_url}")
             response = requests.get(self.registry_url, timeout=30)
@@ -94,14 +116,23 @@ class RegistryRetriever:
             raise e
     
     def get_registry(self, force_refresh: bool = False) -> Dict[str, Any]:
-        """
-        Fetch the registry file.
+        """Fetch the registry file.
+        
+        This method implements a multi-level caching strategy:
+        1. First checks the in-memory cache
+        2. Then checks the local file cache
+        3. Finally fetches from the source (local file or remote URL)
+        
+        The fetched data is stored in both the in-memory and file caches.
         
         Args:
-            force_refresh: Force refresh the registry even if cache is valid
+            force_refresh (bool, optional): Force refresh the registry even if cache is valid. Defaults to False.
             
         Returns:
-            Dict containing the registry data
+            Dict[str, Any]: Registry data.
+            
+        Raises:
+            Exception: If fetching the registry fails.
         """
         current_time = datetime.datetime.now(datetime.timezone.utc).timestamp()
         
@@ -155,11 +186,12 @@ class RegistryRetriever:
             raise e
     
     def is_cache_outdated(self) -> bool:
-        """
-        Check if the cached registry is outdated (not from today's UTC date).
+        """Check if the cached registry is outdated.
+        
+        Determines if the cached registry is not from today's UTC date.
         
         Returns:
-            bool: True if cache is outdated, False if cache is current
+            bool: True if cache is outdated, False if cache is current.
         """
         if not self.registry_cache_path.exists():
             return True  # If file doesn't exist, consider it outdated
