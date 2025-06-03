@@ -20,6 +20,7 @@ class RegistryRetriever:
     
     Provides caching at file system level and in-memory level.
     Works in both local simulation and online GitHub environments.
+    Handles registry timing issues with fallback to previous day's registry.
     """
     
     def __init__(
@@ -40,14 +41,13 @@ class RegistryRetriever:
         self.logger = logging.getLogger('hatch.registry_retriever')
         self.cache_ttl = cache_ttl
         self.simulation_mode = simulation_mode
+        self.is_delayed = False  # Flag to indicate if using a previous day's registry
         
         # Initialize cache directory
         self.cache_dir = local_cache_dir or Path.home() / ".hatch"
         
         # Create cache directory if it doesn't exist
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-
-        # Set up registry source based on mode
+        self.cache_dir.mkdir(parents=True, exist_ok=True)        # Set up registry source based on mode
         if simulation_mode:
             # Local simulation mode - use local registry file
             self.registry_cache_path = local_registry_cache_path or self.cache_dir / "registry" / "hatch_packages_registry.json"
@@ -56,13 +56,15 @@ class RegistryRetriever:
             self.registry_url = f"file://{str(self.registry_cache_path.absolute())}"
             self.logger.info(f"Operating in simulation mode with registry at: {self.registry_cache_path}")
         else:
-            # Online mode - use GitHub URL
-            # get UTC date string for the registry
-            ydm = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
-            self.registry_url = f"https://github.com/CrackingShells/Hatch-Registry/releases/download/{ydm}/hatch_packages_registry.json"
+            # Online mode - set today's date as the default target
+            self.today_date = datetime.datetime.now(datetime.timezone.utc).date()
+            self.today_str = self.today_date.strftime('%Y-%m-%d')
+            
+            # We'll set the initial URL to today, but might fall back to yesterday
+            self.registry_url = f"https://github.com/CrackingShells/Hatch-Registry/releases/download/{self.today_str}/hatch_packages_registry.json"
             self.logger.info(f"Operating in online mode with registry at: {self.registry_url}")
         
-            # Generate cache filename based on URL hash
+            # Generate cache filename - same regardless of which day's registry we end up using
             self.registry_cache_path = self.cache_dir / "registry" / "hatch_packages_registry.json"
         
         # In-memory cache
@@ -96,24 +98,78 @@ class RegistryRetriever:
                 json.dump(registry_data, f, indent=2)
         except Exception as e:
             self.logger.error(f"Failed to write local cache: {e}")
-    
+
     def _fetch_remote_registry(self) -> Dict[str, Any]:
-        """Fetch registry data from remote URL.
+        """Fetch registry data from remote URL with fallback to previous day.
+        
+        Attempts to fetch today's registry first, falling back to previous day if necessary.
+        Updates the is_delayed flag based on which registry was successfully retrieved.
         
         Returns:
             Dict[str, Any]: Registry data from remote source.
             
         Raises:
-            Exception: If fetching the remote registry fails.
+            Exception: If fetching both today's and yesterday's registry fails.
         """
+        if self.simulation_mode:
+            try:
+                self.logger.info(f"Fetching registry from {self.registry_url}")
+                with open(self.registry_cache_path, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                self.logger.error(f"Failed to fetch registry in simulation mode: {e}")
+                raise e
+        
+        # Online mode - try today's registry first
+        date = self.today_date.strftime('%Y-%m-%d')
+        if self._registry_exists(date):
+            self.registry_url = f"https://github.com/CrackingShells/Hatch-Registry/releases/download/{date}/hatch_packages_registry.json"
+            self.is_delayed = False  # Reset delayed flag for today's registry
+        else:
+            self.logger.info(f"Today's registry ({date}) not found, falling back to yesterday's")
+            # Fall back to yesterday's registry
+            yesterday = self.today_date - datetime.timedelta(days=1)
+            date = yesterday.strftime('%Y-%m-%d')
+
+            if not self._registry_exists(date):
+                self.logger.error(f"Yesterday's registry ({date}) also not found, cannot proceed")
+                raise Exception("No valid registry found for today or yesterday")
+            
+            # Use yesterday's registry URL
+            self.registry_url = f"https://github.com/CrackingShells/Hatch-Registry/releases/download/{date}/hatch_packages_registry.json"
+            self.is_delayed = True  # Set delayed flag for yesterday's registry
+
         try:
             self.logger.info(f"Fetching registry from {self.registry_url}")
             response = requests.get(self.registry_url, timeout=30)
             response.raise_for_status()
             return response.json()
+        
         except Exception as e:
-            self.logger.error(f"Failed to fetch remote registry: {e}")
+            self.logger.error(f"Failed to fetch registry from {self.registry_url}: {e}")
             raise e
+    
+    def _registry_exists(self, date_str: str) -> bool:
+        """Check if registry for the given date exists.
+        
+        Makes a HEAD request to check if the release page for the given date exists.
+        
+        Args:
+            date_str (str): Date string in YYYY-MM-DD format.
+            
+        Returns:
+            bool: True if registry exists, False otherwise.
+        """
+        if self.simulation_mode:
+            return self.registry_cache_path.exists()
+        
+
+        url = f"https://github.com/CrackingShells/Hatch-Registry/releases/tag/{date_str}"
+        try:
+            response = requests.head(url, timeout=10)
+            return response.status_code == 200
+        except Exception:
+            return False
     
     def get_registry(self, force_refresh: bool = False) -> Dict[str, Any]:
         """Fetch the registry file.
@@ -188,25 +244,32 @@ class RegistryRetriever:
     def is_cache_outdated(self) -> bool:
         """Check if the cached registry is outdated.
         
-        Determines if the cached registry is not from today's UTC date.
+        Determines if the cached registry is not from today's UTC date
+        or if the cache TTL has expired.
         
         Returns:
             bool: True if cache is outdated, False if cache is current.
         """
         if not self.registry_cache_path.exists():
             return True  # If file doesn't exist, consider it outdated
-        
-        # Get today's date in UTC
-        today_utc = datetime.datetime.now(datetime.timezone.utc).date()
-        
-        # Get cache file's modification date in UTC
-        cache_mtime = datetime.datetime.fromtimestamp(
-            self.registry_cache_path.stat().st_mtime, 
-            tz=datetime.timezone.utc
-        ).date()
-        
-        # Cache is outdated if it's not from today
-        return cache_mtime < today_utc
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        today_utc = now.date()
+        cache_stat = self.registry_cache_path.stat()
+        cache_mtime_dt = datetime.datetime.fromtimestamp(
+            cache_stat.st_mtime, tz=datetime.timezone.utc
+        )
+        cache_mtime_date = cache_mtime_dt.date()
+
+        # Outdated if not from today
+        if cache_mtime_date < today_utc:
+            return True
+
+        # Outdated if TTL expired
+        if (now - cache_mtime_dt).total_seconds() > self.cache_ttl:
+            return True
+
+        return False
 
 # Example usage
 if __name__ == "__main__":
