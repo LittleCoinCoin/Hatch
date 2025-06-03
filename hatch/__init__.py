@@ -5,7 +5,7 @@ This package provides tools for managing Hatch packages, environments,
 and interacting with the Hatch registry.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.3.1"
 
 from .cli_hatch import main
 from .environment_manager import HatchEnvironmentManager
