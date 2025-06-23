@@ -39,6 +39,10 @@ if __name__ == "__main__":
         # Run only package loader online mode tests
         logger.info("Running package loader online mode tests...")
         test_suite = test_loader.loadTestsFromName("test_online_package_loader.OnlinePackageLoaderTests")
+    elif len(sys.argv) > 1 and sys.argv[1] == "--installer-only":
+        # Run only installer interface tests
+        logger.info("Running installer interface tests only...")
+        test_suite = test_loader.loadTestsFromName("test_installer_base.BaseInstallerTests")
     else:
         # Run all tests
         logger.info("Running all package environment tests...")
