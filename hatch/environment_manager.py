@@ -9,10 +9,14 @@ import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 
-from hatch_validator import HatchPackageValidator
+from hatch_validator.package.package_service import PackageService
+from hatch_validator.registry.registry_service import RegistryService, RegistryError
+from hatch_validator.utils.hatch_dependency_graph import HatchDependencyGraphBuilder
+from hatch_validator.utils.dependency_graph import DependencyGraph
+from hatch_validator.utils.version_utils import VersionConstraintValidator, VersionConstraintError
+from hatch_validator.core.validation_context import ValidationContext
 from .registry_retriever import RegistryRetriever
-from .package_loader import HatchPackageLoader, PackageLoaderError
-from .registry_explorer import find_package, find_package_version, get_package_release_url
+from .package_loader import HatchPackageLoader
 
 
 class HatchEnvironmentError(Exception):
@@ -67,16 +71,16 @@ class HatchEnvironmentManager:
         self._current_env_name = self._load_current_env_name()
         
         # Initialize dependencies
-        self.package_loader = HatchPackageLoader(cache_dir=cache_dir)
-
-        # Get dependency resolver from imported module
+        self.package_loader = HatchPackageLoader(cache_dir=cache_dir)        # Get dependency resolver from imported module
         self.retriever = RegistryRetriever(cache_ttl=cache_ttl,
                                       local_cache_dir=cache_dir,
                                       simulation_mode=simulation_mode,
                                       local_registry_cache_path=local_registry_cache_path)
         self.registry_data = self.retriever.get_registry()
-        self.package_validator = HatchPackageValidator(registry_data=self.registry_data)
-        self.dependency_resolver = self.package_validator.dependency_resolver
+        
+        # Initialize services for dependency management
+        self.registry_service = RegistryService(self.registry_data)
+        self.dependency_graph_builder = None  # Will be initialized when needed
 
     def _initialize_environments_file(self):
         """Create the initial environments file with default environment."""
@@ -280,10 +284,11 @@ class HatchEnvironmentManager:
         to an environment, including dependency resolution and installation. It performs 
         the following steps:
         1. Determines if the package is local or remote
-        2. Gets package metadata and dependencies
-        3. Checks for circular dependencies
-        4. Installs missing dependencies 
-        5. Installs the main package
+        2. Gets package metadata
+        3. Builds a dependency graph for the package and returns ordered dependencies
+        4. Compare against existing packages in the environment and retrieve missing dependencies
+        5. Installs the package and its dependencies
+
         
         Args:
             package_path_or_name (str): Path to local package or name of remote package.
@@ -298,230 +303,86 @@ class HatchEnvironmentManager:
             bool: True if successful, False otherwise.
         """        
         
-        # Refresh registry if requested or if force_download is specified
-        if refresh_registry or force_download:
-            self.refresh_registry(force_refresh=True)
-            
-        env_name = env_name or self._current_env_name
-        if not self.environment_exists(env_name):
-            self.logger.error(f"Environment {env_name} does not exist")
-            return False
-        # Check if package is local or remote
-        package_path = Path(package_path_or_name)
-        is_local_package = package_path.exists() and package_path.is_dir()
-
-        local_deps, remote_deps = [], []
-        if is_local_package:
-            # Get the hatch_dependencies from the local pkg's metadata
-            with open(package_path / "hatch_metadata.json", 'r') as f:
-                hatch_metadata = json.load(f)
-            package_name = hatch_metadata.get("name", Path(package_path).name)
-            package_version = hatch_metadata.get("version", "0.0.0")
-            hatch_dependencies = hatch_metadata.get("hatch_dependencies", [])
-            local_deps, remote_deps = self._get_deps_from_all_local_packages(hatch_dependencies)
+        # 1. Determine if the package is local or remote
+        root_pkg_type = "remote"
+        root_pkg_location = ""
+        path = Path(package_path_or_name)
+        if path.exists() and path.is_dir():
+            root_pkg_type = "local"
+            root_pkg_location = str(path.resolve())
+            # 2. Get package metadata for local package
+            metadata_path = path / "hatch_metadata.json"
+            with open(metadata_path, 'r') as f:
+                package_metadata = json.load(f)
 
         else:
-            # For remote packages, there can only be remote dependencies
-            package_name = package_path_or_name
-            if not version_constraint:
-                # Find package in registry data
-                package_registry_data = find_package(self.registry_data, package_name)
-                if not package_registry_data:
-                    self.logger.error(f"Package {package_name} not found in registry")
-                    return False
-                # Find the information about the package version    
-                package_version_data = find_package_version(package_registry_data, version_constraint)
-                if not package_version_data:
-                    self.logger.error(f"Package {package_name} with version constraint {version_constraint} not found in registry")
-                    return False
-                else:
-                    package_version = package_version_data.get("version")
-
-            remote_deps = self.package_validator.dependency_resolver.get_full_package_dependencies(
-                package_name, package_version).get("dependencies", [])
-                
-        # and the package we're trying to install
-        current_dependencies = []
-        
-        # Get currently installed packages
-        installed_packages = {}
-        for pkg in self._environments[env_name].get("packages", []):
-            installed_packages[pkg["name"]] = pkg["version"]
-            
-            # For each installed package, get its dependencies to build the dependency graph
-            if pkg["type"] == "local":
-                # For local packages, use metadata file to get dependencies
-                pkg_install_path = self.get_environment_path(env_name) / pkg["name"]
-                if (pkg_install_path / "hatch_metadata.json").exists():
-                    with open(pkg_install_path / "hatch_metadata.json", 'r') as f:
-                        pkg_metadata = json.load(f)
-                    pkg_deps = pkg_metadata.get("hatch_dependencies", [])
-                    
-                    # Transform the dependencies to correct format
-                    processed_deps = []
-                    for dep in pkg_deps:
-                        if dep.get("name"):  # Make sure the dependency has a name
-                            processed_deps.append(dep.get("name"))
-                    
-                    current_dependencies.append({"name": pkg["name"], "dependencies": processed_deps})
-            else:
-                # For remote packages, use the registry data
-                pkg_deps = self.package_validator.dependency_resolver.get_full_package_dependencies(
-                    pkg["name"], pkg["version"]).get("dependencies", [])
-                
-                # Transform the dependencies to correct format
-                processed_deps = []
-                for dep in pkg_deps:
-                    if dep.get("name"):  # Make sure the dependency has a name
-                        processed_deps.append(dep.get("name"))
-                
-                current_dependencies.append({"name": pkg["name"], "dependencies": processed_deps})
-        
-        # Add the new package to check if it would create a circular dependency
-        if is_local_package:
-            hatch_deps = hatch_metadata.get("hatch_dependencies", [])
-            processed_deps = []
-            for dep in hatch_deps:
-                if dep.get("name"):  # Make sure the dependency has a name
-                    processed_deps.append(dep.get("name"))
-                    
-            current_dependencies.append({
-                "name": package_name,
-                "dependencies": processed_deps
-            })
-        else:
-            pkg_deps = self.package_validator.dependency_resolver.get_full_package_dependencies(
-                package_name, package_version).get("dependencies", [])
-            
-            processed_deps = []
-            for dep in pkg_deps:
-                if dep.get("name"):  # Make sure the dependency has a name
-                    processed_deps.append(dep.get("name"))
-                    
-            current_dependencies.append({
-                "name": package_name,
-                "dependencies": processed_deps
-            })
-        
-        self.logger.debug(f"Checking for circular dependencies in: {current_dependencies}")
-        
-        # Check for circular dependencies
-        has_cycles, cycles = self.package_validator.dependency_resolver.detect_dependency_cycles(
-            current_dependencies)
-            
-        if has_cycles:
-            self.logger.error(f"Circular dependency detected: {cycles}")
-            return False
-
-        # Find missing dependencies
-        local_missing_deps = self._filter_for_missing_dependencies(local_deps, env_name)
-        remote_missing_deps = self._filter_for_missing_dependencies(remote_deps, env_name)
-
-        # Install missing dependencies
-        ## Delegate to package loader
-        for dep in local_missing_deps:
-            try:
-                self.package_loader.install_local_package(
-                    dep["path"],
-                    self.get_environment_path(env_name),
-                    dep["name"]
-                )
-                with open(dep["path"] / "hatch_metadata.json", 'r') as f:
-                    hatch_metadata = json.load(f)
-                self._add_package_to_env_data(env_name, dep["name"], hatch_metadata.get("version"), "local", "local")
-            except PackageLoaderError as e:
-                self.logger.error(f"Failed to install local package {dep['name']}: {e}")
-                return False
-        for dep in remote_missing_deps:
-            try:
-                # First, download the package to cache
-                package_registry_data = find_package(self.registry_data, dep['name'])     
-                self.logger.debug(f"Package registry data: {json.dumps(package_registry_data, indent=2)}")
-                package_url, package_version = get_package_release_url(package_registry_data, dep["version_constraint"])
-                self.package_loader.install_remote_package(package_url,
-                                                            dep["name"],
-                                                            package_version,
-                                                            self.get_environment_path(env_name),
-                                                            force_download)
-                self._add_package_to_env_data(env_name, dep["name"], package_version, "remote", "registry")
-            except PackageLoaderError as e:
-                self.logger.error(f"Failed to install remote package {dep['name']}: {e}")
+            # Assume it's a remote package
+            if not self.registry_service.package_exists(package_path_or_name):
+                self.logger.error(f"Package {package_path_or_name} does not exist in registry")
                 return False
 
-        # Install the main package and add it to environment data
+            # 2. Get package metadata for remote package
+            try:
+                compatible_version = self.registry_service.find_compatible_version(package_path_or_name, version_constraint)
+            except VersionConstraintError as e:
+                self.logger.error(f"Version constraint error: {e}")
+                return False
+            
+            root_pkg_location = self.registry_service.get_package_uri(package_path_or_name, compatible_version)
+            path = self.package_loader.download_package(root_pkg_location,
+                                                 package_path_or_name,
+                                                 compatible_version,
+                                                 force_download=force_download)
+            metadata_path = path / "hatch_metadata.json"
+            with open(metadata_path, 'r') as f:
+                package_metadata = json.load(f)
+            
+        # 3. Build dependency graph for the package
+        self.package_service = PackageService(package_metadata)
+        self.dependency_graph_builder = HatchDependencyGraphBuilder(self.package_service, self.registry_service)
+        context = ValidationContext(package_dir= path,
+                                    registry_data= self.registry_data,
+                                    allow_local_dependencies= True)
+        
         try:
-            if is_local_package:
-                # Install the local package
-                self.package_loader.install_local_package(
-                    package_path,
-                    self.get_environment_path(env_name),
-                    Path(package_path).name
-                )
-                # Read metadata to get name and version
-                with open(package_path / "hatch_metadata.json", 'r') as f:
-                    package_metadata = json.load(f)
-                package_name = package_metadata.get("name", Path(package_path).name)
-                package_version = package_metadata.get("version", "0.0.0")
-                self._add_package_to_env_data(env_name, package_name, package_version, "local", "local")
-            else:                # Remote package
-                package_registry_data = find_package(self.registry_data, package_path_or_name)
-                if not package_registry_data:
-                    self.logger.error(f"Package {package_path_or_name} not found in registry")
-                    return False
-
-                package_url, package_version = get_package_release_url(package_registry_data, version_constraint)
-                if not package_url:
-                    self.logger.error(f"Could not find release URL for package {package_path_or_name} with version constraint {version_constraint}")
-                    return False
-                self.package_loader.install_remote_package(
-                    package_url,
-                    package_path_or_name,
-                    package_version,
-                    self.get_environment_path(env_name),
-                    force_download
-                )
-                self._add_package_to_env_data(env_name, package_path_or_name, package_version, "remote", "registry")
-        except PackageLoaderError as e:
-            self.logger.error(f"Failed to install package {package_path_or_name}: {e}")
+            dependencies = self.dependency_graph_builder.get_install_ready_dependencies(context)
+        except Exception as e:
+            self.logger.error(f"Error building dependency graph: {e}")
             return False
+
+        # 4. Compare against existing packages in the environment and retrieve missing dependencies
+        env_name = env_name or self._current_env_name
+        missing_dependencies = self._filter_for_missing_dependencies(dependencies, env_name)
+
+        # 5. Install the package and its dependencies
+        self.package_loader.install_local_package(path, self.get_environment_path(env_name) / env_name, self.package_service.get_field("name"))
+        self._add_package_to_env_data(env_name, 
+                                     self.package_service.get_field("name"), 
+                                     self.package_service.get_field("version"), 
+                                     root_pkg_type,
+                                     root_pkg_location)
+        for dep in missing_dependencies:
+            location = missing_dependencies[dep].get("uri")
+            if location[:7] == "file://":
+                # Local dependency
+                dep_path = Path(location[7:])                
+                # Install local package
+                self.package_loader.install_local_package(dep_path, self.get_environment_path(env_name), dep["name"])
+                self._add_package_to_env_data(env_name, 
+                                             dep["name"], 
+                                             dep["resolved_version"], 
+                                             "local",
+                                             location[7:])
+            else:
+                # Remote dependency
+                self.package_loader.install_remote_package(location, dep["name"], dep["resolved_version"], self.get_environment_path(env_name))
+                self._add_package_to_env_data(env_name, 
+                                             dep["name"], 
+                                             dep["resolved_version"], 
+                                             "remote",
+                                             location)
 
         return True
-
-    def _get_deps_from_all_local_packages(self, hatch_dependencies: List[Dict]) -> Tuple[List[Dict], List[str]]:
-        """Retrieves the local and remote dependencies from the hatch_dependencies list of a package.
-        
-        This method uses a breadth-first search approach to gather all dependencies,
-        separating them into local and remote categories.
-        
-        Args:
-            hatch_dependencies: List of dependencies from the package's metadata.
-            
-        Returns:
-            Tuple[List[Dict], List[str]]: A tuple containing:
-                - List of local dependencies with path information
-                - List of remote dependencies with version constraints
-        """
-        deps_queue = hatch_dependencies.copy()
-        local_deps = []
-        remote_deps_queue = []
-        
-        while deps_queue:
-            dep = deps_queue.pop(0)
-            if dep.get("type").get("type") == "local":
-                local_deps += [{"name": dep.get("name"), "path": dep.get("type").get("path")}]
-                deps_queue += local_deps[-1].get("hatch_dependencies", [])
-            else:
-                remote_deps_queue.append(dep)
-
-        remote_deps = []
-        while remote_deps_queue:
-            dep = remote_deps_queue.pop(0)
-            remote_deps += [{"name": dep.get("name"), "version_constraint": dep.get("version_constraint")}]
-            new_deps = self.package_validator.dependency_resolver.get_full_package_dependencies(
-                dep.get("name"), dep.get("version_constraint"))
-            remote_deps_queue += new_deps.get("dependencies", [])
-
-        return local_deps, remote_deps
 
     def _filter_for_missing_dependencies(self, dependencies: List[Dict], env_name: str) -> List[Dict]:
         """Determine which dependencies are not installed in the environment."""
@@ -543,9 +404,11 @@ class HatchEnvironmentManager:
             
             # Check version constraints
             constraint = dep.get("version_constraint")
-            if constraint and not self.package_validator.dependency_resolver.is_version_compatible(
-                    installed_packages[dep_name], constraint):
-                missing_deps.append(dep)
+            if constraint:
+                is_compatible, _ = VersionConstraintValidator.is_version_compatible(
+                    installed_packages[dep_name], constraint)
+                if not is_compatible:
+                    missing_deps.append(dep)
         
         return missing_deps
     
@@ -731,9 +594,8 @@ class HatchEnvironmentManager:
         self.logger.info("Refreshing registry data...")
         try:
             self.registry_data = self.retriever.get_registry(force_refresh=force_refresh)
-            # Update package validator with new registry data
-            self.package_validator = HatchPackageValidator(registry_data=self.registry_data)
-            self.dependency_resolver = self.package_validator.dependency_resolver
+            # Update registry service with new registry data
+            self.registry_service = RegistryService(self.registry_data)
             self.logger.info("Registry data refreshed successfully")
         except Exception as e:
             self.logger.error(f"Failed to refresh registry data: {e}")
