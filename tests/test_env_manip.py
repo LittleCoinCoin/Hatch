@@ -11,8 +11,6 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from hatch.environment_manager import HatchEnvironmentManager
-from hatch.registry_retriever import RegistryRetriever
-from hatch_registry import RegistryUpdater
 
 # Configure logging
 logging.basicConfig(
@@ -37,7 +35,6 @@ class PackageEnvironmentTests(unittest.TestCase):
         
         # Create a sample registry that includes Hatching-Dev packages
         self._create_sample_registry()
-        self.test_registry = RegistryUpdater(self.registry_path)
         
         # Override environment paths to use our test directory
         env_dir = Path(self.temp_dir) / "envs"
@@ -59,16 +56,16 @@ class PackageEnvironmentTests(unittest.TestCase):
         self.env_manager.reload_environments()
         
     def _create_sample_registry(self):
-        """Create a sample registry with Hatching-Dev packages"""
-        # Basic registry structure
-        test_registry = {
+        """Create a sample registry with Hatching-Dev packages using real metadata."""
+        now = datetime.now().isoformat()
+        registry = {
             "registry_schema_version": "1.1.0",
-            "last_updated": datetime.now().isoformat(),
+            "last_updated": now,
             "repositories": [
                 {
                     "name": "test-repo",
-                    "url": "file:///hatching-dev",
-                    "last_indexed": datetime.now().isoformat(),
+                    "url": f"file://{self.hatch_dev_path}",
+                    "last_indexed": now,
                     "packages": []
                 }
             ],
@@ -77,13 +74,65 @@ class PackageEnvironmentTests(unittest.TestCase):
                 "total_versions": 0
             }
         }
-
+        pkg_names = [
+            "arithmetic_pkg", "base_pkg_1", "base_pkg_2", "python_dep_pkg",
+            "circular_dep_pkg_1", "circular_dep_pkg_2", "complex_dep_pkg", "simple_dep_pkg"
+        ]
+        for pkg_name in pkg_names:
+            pkg_path = self.hatch_dev_path / pkg_name
+            if pkg_path.exists():
+                metadata_path = pkg_path / "hatch_metadata.json"
+                if metadata_path.exists():
+                    try:
+                        with open(metadata_path, 'r') as f:
+                            metadata = json.load(f)
+                        pkg_entry = {
+                            "name": metadata.get("name", pkg_name),
+                            "description": metadata.get("description", ""),
+                            "tags": metadata.get("tags", []),
+                            "latest_version": metadata.get("version", "1.0.0"),
+                            "versions": [
+                                {
+                                    "version": metadata.get("version", "1.0.0"),
+                                    "release_uri": f"file://{pkg_path}",
+                                    "author": {
+                                        "GitHubID": metadata.get("author", {}).get("name", "test_user"),
+                                        "email": metadata.get("author", {}).get("email", "test@example.com")
+                                    },
+                                    "added_date": now,
+                                    "hatch_dependencies_added": [
+                                        {
+                                            "name": dep["name"],
+                                            "version_constraint": dep.get("version_constraint", "")
+                                        } for dep in metadata.get("hatch_dependencies", [])
+                                    ],
+                                    "python_dependencies_added": [
+                                        {
+                                            "name": dep["name"],
+                                            "version_constraint": dep.get("version_constraint", ""),
+                                            "package_manager": dep.get("package_manager", "pip")
+                                        } for dep in metadata.get("python_dependencies", [])
+                                    ],
+                                    "hatch_dependencies_removed": [],
+                                    "hatch_dependencies_modified": [],
+                                    "python_dependencies_removed": [],
+                                    "python_dependencies_modified": [],
+                                    "compatibility_changes": {}
+                                }
+                            ]
+                        }
+                        registry["repositories"][0]["packages"].append(pkg_entry)
+                    except Exception as e:
+                        logger.error(f"Failed to load metadata for {pkg_name}: {e}")
+                        raise e
+        # Update stats
+        registry["stats"]["total_packages"] = len(registry["repositories"][0]["packages"])
+        registry["stats"]["total_versions"] = sum(len(pkg["versions"]) for pkg in registry["repositories"][0]["packages"])
         registry_dir = Path(self.temp_dir) / "registry"
         registry_dir.mkdir(parents=True, exist_ok=True)
         self.registry_path = registry_dir / "hatch_packages_registry.json"
-
-        with open(self.registry_path, "w") as f: 
-            json.dump(test_registry, f, indent=2)
+        with open(self.registry_path, "w") as f:
+            json.dump(registry, f, indent=2)
         logger.info(f"Sample registry created at {self.registry_path}")
         
     def tearDown(self):
