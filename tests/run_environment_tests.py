@@ -53,16 +53,24 @@ if __name__ == "__main__":
         test_mocking = test_loader.loadTestsFromName("test_python_installer.TestPythonInstaller")
         test_integration = test_loader.loadTestsFromName("test_python_installer.TestPythonInstallerIntegration")
         test_suite = unittest.TestSuite([test_mocking, test_integration])
+    elif len(sys.argv) > 1 and sys.argv[1] == "--system-installer-only":
+        # Run only SystemInstaller tests
+        logger.info("Running SystemInstaller tests only...")
+        test_mocking = test_loader.loadTestsFromName("test_system_installer.TestSystemInstaller")
+        test_integration = test_loader.loadTestsFromName("test_system_installer.TestSystemInstallerIntegration")
+        test_suite = unittest.TestSuite([test_mocking, test_integration])
     elif len(sys.argv) > 1 and sys.argv[1] == "--all-installers":
         # Run all installer tests
         logger.info("Running all installer tests...")
         hatch_tests = test_loader.loadTestsFromName("test_hatch_installer.TestHatchInstaller")
         python_tests_mocking = test_loader.loadTestsFromName("test_python_installer.TestPythonInstaller")
         python_tests_integration = test_loader.loadTestsFromName("test_python_installer.TestPythonInstallerIntegration")
+        system_tests = test_loader.loadTestsFromName("test_system_installer.TestSystemInstaller")
+        system_tests_integration = test_loader.loadTestsFromName("test_system_installer.TestSystemInstallerIntegration")
 
         # Add future installer tests here as needed
 
-        test_suite = unittest.TestSuite([hatch_tests, python_tests_mocking, python_tests_integration])
+        test_suite = unittest.TestSuite([hatch_tests, python_tests_mocking, python_tests_integration, system_tests, system_tests_integration])
     else:
         # Run all tests
         logger.info("Running all package environment tests...")
