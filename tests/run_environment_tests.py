@@ -43,6 +43,10 @@ if __name__ == "__main__":
         # Run only installer interface tests
         logger.info("Running installer interface tests only...")
         test_suite = test_loader.loadTestsFromName("test_installer_base.BaseInstallerTests")
+    elif len(sys.argv) > 1 and sys.argv[1] == "--hatch-installer-only":
+        # Run only HatchInstaller tests
+        logger.info("Running HatchInstaller tests only...")
+        test_suite = test_loader.loadTestsFromName("test_hatch_installer.TestHatchInstaller")
     else:
         # Run all tests
         logger.info("Running all package environment tests...")
