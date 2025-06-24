@@ -47,6 +47,22 @@ if __name__ == "__main__":
         # Run only HatchInstaller tests
         logger.info("Running HatchInstaller tests only...")
         test_suite = test_loader.loadTestsFromName("test_hatch_installer.TestHatchInstaller")
+    elif len(sys.argv) > 1 and sys.argv[1] == "--python-installer-only":
+        # Run only PythonInstaller tests
+        logger.info("Running PythonInstaller tests only...")
+        test_mocking = test_loader.loadTestsFromName("test_python_installer.TestPythonInstaller")
+        test_integration = test_loader.loadTestsFromName("test_python_installer.TestPythonInstallerIntegration")
+        test_suite = unittest.TestSuite([test_mocking, test_integration])
+    elif len(sys.argv) > 1 and sys.argv[1] == "--all-installers":
+        # Run all installer tests
+        logger.info("Running all installer tests...")
+        hatch_tests = test_loader.loadTestsFromName("test_hatch_installer.TestHatchInstaller")
+        python_tests_mocking = test_loader.loadTestsFromName("test_python_installer.TestPythonInstaller")
+        python_tests_integration = test_loader.loadTestsFromName("test_python_installer.TestPythonInstallerIntegration")
+
+        # Add future installer tests here as needed
+
+        test_suite = unittest.TestSuite([hatch_tests, python_tests_mocking, python_tests_integration])
     else:
         # Run all tests
         logger.info("Running all package environment tests...")
