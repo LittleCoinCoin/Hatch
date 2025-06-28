@@ -85,6 +85,10 @@ if __name__ == "__main__":
             docker_tests,
             docker_tests_integration
         ])
+    elif len(sys.argv) > 1 and sys.argv[1] == "--registry-only":
+        # Run only installer registry tests
+        logger.info("Running installer registry tests only...")
+        test_suite = test_loader.loadTestsFromName("test_registry.TestInstallerRegistry")
     else:
         # Run all tests
         logger.info("Running all package environment tests...")

@@ -96,8 +96,7 @@ class HatchInstaller(DependencyInstaller):
         target_dir = Path(context.environment_path)
         try:
             if progress_callback:
-                progress_callback("validate", 0.0, f"Validating {name}")
-            # Optionally, validate package metadata if local path is available
+                progress_callback("install", 0.0, f"Installing {name}-{version} from {uri}")
             # Download/install the package
             if uri and uri.startswith("file://"):
                 pkg_path = Path(uri[7:])
@@ -175,3 +174,7 @@ class HatchInstaller(DependencyInstaller):
                             shutil.rmtree(artifact)
                 except Exception:
                     pass
+
+# Register this installer with the global registry
+from .registry import installer_registry
+installer_registry.register_installer("hatch", HatchInstaller)

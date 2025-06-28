@@ -358,3 +358,7 @@ class PythonInstaller(DependencyInstaller):
         })
         
         return info
+
+# Register this installer with the global registry
+from .registry import installer_registry
+installer_registry.register_installer("python", PythonInstaller)

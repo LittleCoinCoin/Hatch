@@ -539,3 +539,7 @@ class DockerInstaller(DependencyInstaller):
                 info["error"] = str(e)
                 
         return info
+
+# Register this installer with the global registry
+from .registry import installer_registry
+installer_registry.register_installer("docker", DockerInstaller)

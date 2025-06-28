@@ -6,9 +6,12 @@ Python packages, system packages, and Docker containers.
 """
 
 from .installer_base import DependencyInstaller, InstallationError, InstallationContext
+from .registry import InstallerRegistry, installer_registry
 
 __all__ = [
     "DependencyInstaller",
     "InstallationError", 
-    "InstallationContext"
+    "InstallationContext",
+    "InstallerRegistry",
+    "installer_registry"
 ]

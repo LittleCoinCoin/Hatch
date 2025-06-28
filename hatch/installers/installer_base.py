@@ -28,7 +28,7 @@ class InstallationError(Exception):
             error_code (str, optional): Machine-readable error code.
             cause (Exception, optional): Underlying exception that caused this error.
         """
-        super().__init__(message)
+        self.message = message
         self.dependency_name = dependency_name
         self.error_code = error_code
         self.cause = cause
@@ -165,7 +165,7 @@ class DependencyInstaller(ABC):
             "installer_type": self.installer_type,
             "dependency_name": dependency.get("name"),
             "resolved_version": dependency.get("resolved_version"),
-            "target_path": context.environment_path,
+            "target_path": str(context.environment_path),
             "supported": self.can_install(dependency)
         }
     
