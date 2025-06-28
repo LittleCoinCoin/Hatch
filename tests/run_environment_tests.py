@@ -59,6 +59,12 @@ if __name__ == "__main__":
         test_mocking = test_loader.loadTestsFromName("test_system_installer.TestSystemInstaller")
         test_integration = test_loader.loadTestsFromName("test_system_installer.TestSystemInstallerIntegration")
         test_suite = unittest.TestSuite([test_mocking, test_integration])
+    elif len(sys.argv) > 1 and sys.argv[1] == "--docker-installer-only":
+        # Run only DockerInstaller tests
+        logger.info("Running DockerInstaller tests only...")
+        test_mocking = test_loader.loadTestsFromName("test_docker_installer.TestDockerInstaller")
+        test_integration = test_loader.loadTestsFromName("test_docker_installer.TestDockerInstallerIntegration")
+        test_suite = unittest.TestSuite([test_mocking, test_integration])
     elif len(sys.argv) > 1 and sys.argv[1] == "--all-installers":
         # Run all installer tests
         logger.info("Running all installer tests...")
@@ -67,10 +73,18 @@ if __name__ == "__main__":
         python_tests_integration = test_loader.loadTestsFromName("test_python_installer.TestPythonInstallerIntegration")
         system_tests = test_loader.loadTestsFromName("test_system_installer.TestSystemInstaller")
         system_tests_integration = test_loader.loadTestsFromName("test_system_installer.TestSystemInstallerIntegration")
+        docker_tests = test_loader.loadTestsFromName("test_docker_installer.TestDockerInstaller")
+        docker_tests_integration = test_loader.loadTestsFromName("test_docker_installer.TestDockerInstallerIntegration")
 
-        # Add future installer tests here as needed
-
-        test_suite = unittest.TestSuite([hatch_tests, python_tests_mocking, python_tests_integration, system_tests, system_tests_integration])
+        test_suite = unittest.TestSuite([
+            hatch_tests, 
+            python_tests_mocking, 
+            python_tests_integration, 
+            system_tests, 
+            system_tests_integration,
+            docker_tests,
+            docker_tests_integration
+        ])
     else:
         # Run all tests
         logger.info("Running all package environment tests...")
