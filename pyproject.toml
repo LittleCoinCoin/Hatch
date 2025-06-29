@@ -21,8 +21,9 @@ dependencies = [
     "jsonschema>=4.0.0",
     "requests>=2.25.0",
     "packaging>=20.0",
-    "hatch_validator @ git+https://github.com/CrackingShells/Hatch-Validator.git@v0.3.2"
     "docker>=7.1.0",
+    
+    "hatch_validator @ git+https://github.com/CrackingShells/Hatch-Validator.git@dev"
 ]
 
 [project.scripts]
