@@ -9,10 +9,10 @@ import shutil
 from pathlib import Path
 from typing import Dict, Any, Optional, Callable, List
 
-from .installer_base import DependencyInstaller, InstallationContext, InstallationResult, InstallationError
+from hatch.installers.installer_base import DependencyInstaller, InstallationContext, InstallationResult, InstallationError
+from hatch.installers.installation_context import InstallationStatus
 from hatch.package_loader import HatchPackageLoader, PackageLoaderError
 from hatch_validator.package_validator import HatchPackageValidator
-from hatch_validator.package.package_service import PackageService
 
 class HatchInstaller(DependencyInstaller):
     """Installer for Hatch package dependencies.
@@ -105,11 +105,13 @@ class HatchInstaller(DependencyInstaller):
                 result_path = self.package_loader.install_remote_package(uri, name, version, target_dir)
             else:
                 raise InstallationError(f"No URI provided for dependency {name}", dependency_name=name)
+            
             if progress_callback:
                 progress_callback("install", 1.0, f"Installed {name} to {result_path}")
+            
             return InstallationResult(
                 dependency_name=name,
-                status="COMPLETED",
+                status=InstallationStatus.COMPLETED,
                 installed_path=result_path,
                 installed_version=version,
                 error_message=None,
@@ -144,7 +146,7 @@ class HatchInstaller(DependencyInstaller):
                 progress_callback("uninstall", 1.0, f"Uninstalled {name}")
             return InstallationResult(
                 dependency_name=name,
-                status="COMPLETED",
+                status=InstallationStatus.COMPLETED,
                 installed_path=target_dir,
                 installed_version=dependency.get("resolved_version"),
                 error_message=None,
