@@ -35,4 +35,6 @@ hatch = "hatch.cli_hatch:main"
 
 [tool.setuptools]
 package-dir = {"" = "."}
-packages = ["hatch"]
+
+[tool.setuptools.packages.find]
+where = ["."]
