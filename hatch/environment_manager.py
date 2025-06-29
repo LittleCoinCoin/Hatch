@@ -3,6 +3,7 @@
 This module provides the core functionality for managing isolated environments
 for Hatch packages.
 """
+import sys
 import json
 import logging
 import datetime
@@ -13,6 +14,7 @@ from hatch_validator.registry.registry_service import RegistryService, RegistryE
 from .registry_retriever import RegistryRetriever
 from .package_loader import HatchPackageLoader
 from .installers.dependency_installation_orchestrator import DependencyInstallerOrchestrator
+from .python_environment_manager import PythonEnvironmentManager, PythonEnvironmentError
 
 class HatchEnvironmentError(Exception):
     """Exception raised for environment-related errors."""
@@ -65,6 +67,9 @@ class HatchEnvironmentManager:
         self._environments = self._load_environments()
         self._current_env_name = self._load_current_env_name()
         
+        # Initialize Python environment manager
+        self.python_env_manager = PythonEnvironmentManager(environments_dir=self.environments_dir)
+        
         # Initialize dependencies
         self.package_loader = HatchPackageLoader(cache_dir=cache_dir)
         self.retriever = RegistryRetriever(cache_ttl=cache_ttl,
@@ -81,6 +86,10 @@ class HatchEnvironmentManager:
             registry_service=self.registry_service,
             registry_data=self.registry_data
         )
+        
+        # Configure Python executable for current environment
+        if self._current_env_name:
+            self._configure_python_executable(self._current_env_name)
 
     def _initialize_environments_file(self):
         """Create the initial environments file with default environment."""
@@ -89,7 +98,10 @@ class HatchEnvironmentManager:
                 "name": "default",
                 "description": "Default environment",
                 "created_at": datetime.datetime.now().isoformat(),
-                "packages": []
+                "packages": [],
+                "python_environment": False,  # Legacy field
+                "python_version": None,  # Legacy field
+                "python_env": None  # Enhanced metadata structure
             }
         }
         
@@ -175,11 +187,47 @@ class HatchEnvironmentManager:
             # Update cache
             self._current_env_name = env_name
             
+            # Configure Python executable for dependency installation
+            self._configure_python_executable(env_name)
+            
             self.logger.info(f"Current environment set to: {env_name}")
             return True
         except Exception as e:
             self.logger.error(f"Failed to set current environment: {e}")
             return False
+    
+    def _configure_python_executable(self, env_name: str) -> None:
+        """Configure the Python executable for the current environment.
+        
+        This method sets the Python executable in the dependency orchestrator's
+        InstallationContext so that python_installer.py uses the correct interpreter.
+        
+        Args:
+            env_name: Name of the environment to configure Python for
+        """
+        # Get Python executable from Python environment manager
+        python_executable = self.python_env_manager.get_python_executable(env_name)
+        
+        if python_executable:
+            # Configure the dependency orchestrator with the Python executable
+            self.dependency_orchestrator.set_python_executable(python_executable)
+            self.logger.info(f"Configured Python executable for {env_name}: {python_executable}")
+        else:
+            # Use system Python as fallback
+            system_python = sys.executable
+            self.dependency_orchestrator.set_python_executable(system_python)
+            self.logger.info(f"Using system Python for {env_name}: {system_python}")
+    
+    def get_current_python_executable(self) -> Optional[str]:
+        """Get the Python executable for the current environment.
+        
+        Returns:
+            str: Path to Python executable, None if no current environment or no Python env
+        """
+        if not self._current_env_name:
+            return None
+        
+        return self.python_env_manager.get_python_executable(self._current_env_name)
     
     def list_environments(self) -> List[Dict]:
         """
@@ -196,13 +244,17 @@ class HatchEnvironmentManager:
         
         return result
     
-    def create_environment(self, name: str, description: str = "") -> bool:
+    def create_environment(self, name: str, description: str = "", 
+                          python_version: Optional[str] = None, 
+                          create_python_env: bool = True) -> bool:
         """
         Create a new environment.
         
         Args:
             name: Name of the environment
             description: Description of the environment
+            python_version: Python version for the environment (e.g., "3.11", "3.12")
+            create_python_env: Whether to create a Python environment using conda/mamba
             
         Returns:
             bool: True if created successfully, False if environment already exists
@@ -217,13 +269,59 @@ class HatchEnvironmentManager:
             self.logger.warning(f"Environment already exists: {name}")
             return False
         
-        # Create new environment
-        self._environments[name] = {
+        # Create Python environment if requested and conda/mamba is available
+        python_env_info = None
+        if create_python_env and self.python_env_manager.is_available():
+            try:
+                python_env_created = self.python_env_manager.create_python_environment(
+                    name, python_version=python_version
+                )
+                if python_env_created:
+                    self.logger.info(f"Created Python environment for {name}")
+                    
+                    # Get detailed Python environment information
+                    python_info = self.python_env_manager.get_environment_info(name)
+                    if python_info:
+                        python_env_info = {
+                            "enabled": True,
+                            "conda_env_name": python_info.get("conda_env_name"),
+                            "python_executable": python_info.get("python_executable"),
+                            "created_at": datetime.datetime.now().isoformat(),
+                            "version": python_info.get("python_version"),
+                            "requested_version": python_version,
+                            "manager": python_info.get("manager", "conda")
+                        }
+                    else:
+                        # Fallback if detailed info is not available
+                        python_env_info = {
+                            "enabled": True,
+                            "conda_env_name": f"hatch-{name}",
+                            "python_executable": None,
+                            "created_at": datetime.datetime.now().isoformat(),
+                            "version": None,
+                            "requested_version": python_version,
+                            "manager": "conda"
+                        }
+                else:
+                    self.logger.warning(f"Failed to create Python environment for {name}")
+            except PythonEnvironmentError as e:
+                self.logger.error(f"Failed to create Python environment: {e}")
+                # Continue with Hatch environment creation even if Python env creation fails
+        elif create_python_env:
+            self.logger.warning("Python environment creation requested but conda/mamba not available")
+        
+        # Create new Hatch environment with enhanced metadata
+        env_data = {
             "name": name,
             "description": description,
             "created_at": datetime.datetime.now().isoformat(),
-            "packages": []
+            "packages": [],
+            "python_environment": python_env_info is not None,  # Legacy field for backward compatibility
+            "python_version": python_version,  # Legacy field for backward compatibility
+            "python_env": python_env_info  # Enhanced metadata structure
         }
+        
+        self._environments[name] = env_data
         
         self._save_environments()
         self.logger.info(f"Created environment: {name}")
@@ -252,6 +350,15 @@ class HatchEnvironmentManager:
         # If removing current environment, switch to default
         if name == self._current_env_name:
             self.set_current_environment("default")
+        
+        # Remove Python environment if it exists
+        env_data = self._environments[name]
+        if env_data.get("python_environment", False):
+            try:
+                self.python_env_manager.remove_python_environment(name)
+                self.logger.info(f"Removed Python environment for {name}")
+            except PythonEnvironmentError as e:
+                self.logger.warning(f"Failed to remove Python environment: {e}")
         
         # Remove environment
         del self._environments[name]
@@ -533,3 +640,222 @@ class HatchEnvironmentManager:
         except Exception as e:
             self.logger.error(f"Failed to refresh registry data: {e}")
             raise
+    
+    def is_python_environment_available(self) -> bool:
+        """Check if Python environment management is available.
+        
+        Returns:
+            bool: True if conda/mamba is available, False otherwise.
+        """
+        return self.python_env_manager.is_available()
+    
+    def get_python_environment_info(self, env_name: str) -> Optional[Dict[str, Any]]:
+        """Get comprehensive Python environment information for an environment.
+        
+        Args:
+            env_name (str): Environment name.
+            
+        Returns:
+            dict: Comprehensive Python environment info, None if no Python environment exists.
+        """
+        if env_name not in self._environments:
+            return None
+            
+        env_data = self._environments[env_name]
+        
+        # Check if Python environment exists
+        if not env_data.get("python_environment", False):
+            return None
+        
+        # Start with enhanced metadata from Hatch environment
+        python_env_data = env_data.get("python_env", {})
+        
+        # Get real-time information from Python environment manager
+        live_info = self.python_env_manager.get_environment_info(env_name)
+        
+        # Combine metadata with live information
+        result = {
+            # Basic identification
+            "environment_name": env_name,
+            "enabled": python_env_data.get("enabled", True),
+            
+            # Conda/mamba information
+            "conda_env_name": python_env_data.get("conda_env_name") or (live_info.get("conda_env_name") if live_info else None),
+            "manager": python_env_data.get("manager", "conda"),
+            
+            # Python executable and version
+            "python_executable": live_info.get("python_executable") if live_info else python_env_data.get("python_executable"),
+            "python_version": live_info.get("python_version") if live_info else python_env_data.get("version"),
+            "requested_version": python_env_data.get("requested_version"),
+            
+            # Paths and timestamps
+            "environment_path": live_info.get("environment_path") if live_info else None,
+            "created_at": python_env_data.get("created_at"),
+            
+            # Package information
+            "package_count": live_info.get("package_count", 0) if live_info else 0,
+            
+            # Status information
+            "exists": live_info is not None,
+            "accessible": live_info.get("python_executable") is not None if live_info else False
+        }
+        
+        return result
+    
+    def list_python_environments(self) -> List[str]:
+        """List all environments that have Python environments.
+        
+        Returns:
+            list: List of environment names with Python environments.
+        """
+        return self.python_env_manager.list_environments()
+    
+    def create_python_environment_only(self, env_name: str, python_version: Optional[str] = None, 
+                                      force: bool = False) -> bool:
+        """Create only a Python environment without creating a Hatch environment.
+        
+        Useful for adding Python environments to existing Hatch environments.
+        
+        Args:
+            env_name (str): Environment name.
+            python_version (str, optional): Python version (e.g., "3.11").
+            force (bool, optional): Whether to recreate if exists.
+            
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        if env_name not in self._environments:
+            self.logger.error(f"Hatch environment {env_name} must exist first")
+            return False
+        
+        try:
+            success = self.python_env_manager.create_python_environment(
+                env_name, python_version=python_version, force=force
+            )
+            
+            if success:
+                # Get detailed Python environment information
+                python_info = self.python_env_manager.get_environment_info(env_name)
+                if python_info:
+                    python_env_info = {
+                        "enabled": True,
+                        "conda_env_name": python_info.get("conda_env_name"),
+                        "python_executable": python_info.get("python_executable"),
+                        "created_at": datetime.datetime.now().isoformat(),
+                        "version": python_info.get("python_version"),
+                        "requested_version": python_version,
+                        "manager": python_info.get("manager", "conda")
+                    }
+                else:
+                    # Fallback if detailed info is not available
+                    python_env_info = {
+                        "enabled": True,
+                        "conda_env_name": f"hatch-{env_name}",
+                        "python_executable": None,
+                        "created_at": datetime.datetime.now().isoformat(),
+                        "version": None,
+                        "requested_version": python_version,
+                        "manager": "conda"
+                    }
+                
+                # Update environment metadata with enhanced structure
+                self._environments[env_name]["python_environment"] = True  # Legacy field
+                self._environments[env_name]["python_env"] = python_env_info  # Enhanced structure
+                if python_version:
+                    self._environments[env_name]["python_version"] = python_version  # Legacy field
+                self._save_environments()
+                
+                # Reconfigure Python executable if this is the current environment
+                if env_name == self._current_env_name:
+                    self._configure_python_executable(env_name)
+            
+            return success
+        except PythonEnvironmentError as e:
+            self.logger.error(f"Failed to create Python environment: {e}")
+            return False
+    
+    def remove_python_environment_only(self, env_name: str) -> bool:
+        """Remove only the Python environment, keeping the Hatch environment.
+        
+        Args:
+            env_name (str): Environment name.
+            
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        if env_name not in self._environments:
+            self.logger.warning(f"Hatch environment {env_name} does not exist")
+            return False
+        
+        try:
+            success = self.python_env_manager.remove_python_environment(env_name)
+            
+            if success:
+                # Update environment metadata - remove Python environment info
+                self._environments[env_name]["python_environment"] = False  # Legacy field
+                self._environments[env_name]["python_env"] = None  # Enhanced structure
+                self._environments[env_name].pop("python_version", None)  # Legacy field cleanup
+                self._save_environments()
+                
+                # Reconfigure Python executable if this is the current environment
+                if env_name == self._current_env_name:
+                    self._configure_python_executable(env_name)
+            
+            return success
+        except PythonEnvironmentError as e:
+            self.logger.error(f"Failed to remove Python environment: {e}")
+            return False
+    
+    def get_python_environment_diagnostics(self, env_name: str) -> Optional[Dict[str, Any]]:
+        """Get detailed diagnostics for a Python environment.
+        
+        Args:
+            env_name (str): Environment name.
+            
+        Returns:
+            dict: Diagnostics information or None if environment doesn't exist.
+        """
+        if env_name not in self._environments:
+            return None
+            
+        try:
+            return self.python_env_manager.get_environment_diagnostics(env_name)
+        except PythonEnvironmentError as e:
+            self.logger.error(f"Failed to get diagnostics for {env_name}: {e}")
+            return None
+    
+    def get_python_manager_diagnostics(self) -> Dict[str, Any]:
+        """Get general diagnostics for the Python environment manager.
+        
+        Returns:
+            dict: General diagnostics information.
+        """
+        try:
+            return self.python_env_manager.get_manager_diagnostics()
+        except Exception as e:
+            self.logger.error(f"Failed to get manager diagnostics: {e}")
+            return {"error": str(e)}
+    
+    def launch_python_shell(self, env_name: str, cmd: Optional[str] = None) -> bool:
+        """Launch a Python shell or execute a command in the environment.
+        
+        Args:
+            env_name (str): Environment name.
+            cmd (str, optional): Command to execute. If None, launches interactive shell.
+            
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        if env_name not in self._environments:
+            self.logger.error(f"Environment {env_name} does not exist")
+            return False
+            
+        if not self._environments[env_name].get("python_environment", False):
+            self.logger.error(f"No Python environment configured for {env_name}")
+            return False
+            
+        try:
+            return self.python_env_manager.launch_shell(env_name, cmd)
+        except PythonEnvironmentError as e:
+            self.logger.error(f"Failed to launch shell for {env_name}: {e}")
+            return False
