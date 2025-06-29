@@ -53,6 +53,23 @@ if __name__ == "__main__":
         test_mocking = test_loader.loadTestsFromName("test_python_installer.TestPythonInstaller")
         test_integration = test_loader.loadTestsFromName("test_python_installer.TestPythonInstallerIntegration")
         test_suite = unittest.TestSuite([test_mocking, test_integration])
+    elif len(sys.argv) > 1 and sys.argv[1] == "--python-env-manager-only":
+        # Run only PythonEnvironmentManager tests (mocked)
+        logger.info("Running PythonEnvironmentManager mocked tests only...")
+        test_suite = test_loader.loadTestsFromName("test_python_environment_manager.TestPythonEnvironmentManager")
+    elif len(sys.argv) > 1 and sys.argv[1] == "--python-env-manager-integration":
+        # Run only PythonEnvironmentManager integration tests (requires conda/mamba)
+        logger.info("Running PythonEnvironmentManager integration tests only...")
+        test_integration = test_loader.loadTestsFromName("test_python_environment_manager.TestPythonEnvironmentManagerIntegration")
+        #test_enhanced = test_loader.loadTestsFromName("test_python_environment_manager.TestPythonEnvironmentManagerEnhancedFeatures")
+        test_suite = unittest.TestSuite([test_integration])#, test_enhanced])
+    elif len(sys.argv) > 1 and sys.argv[1] == "--python-env-manager-all":
+        # Run all PythonEnvironmentManager tests
+        logger.info("Running all PythonEnvironmentManager tests...")
+        test_mocked = test_loader.loadTestsFromName("test_python_environment_manager.TestPythonEnvironmentManager")
+        test_integration = test_loader.loadTestsFromName("test_python_environment_manager.TestPythonEnvironmentManagerIntegration")
+        test_enhanced = test_loader.loadTestsFromName("test_python_environment_manager.TestPythonEnvironmentManagerEnhancedFeatures")
+        test_suite = unittest.TestSuite([test_mocked, test_integration, test_enhanced])
     elif len(sys.argv) > 1 and sys.argv[1] == "--system-installer-only":
         # Run only SystemInstaller tests
         logger.info("Running SystemInstaller tests only...")
