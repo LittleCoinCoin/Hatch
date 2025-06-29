@@ -195,7 +195,8 @@ class PackageEnvironmentTests(unittest.TestCase):
         # Add package to environment
         result = self.env_manager.add_package_to_environment(
             str(pkg_path),  # Convert to string to handle Path objects
-            "test_env"
+            "test_env",
+            auto_approve=True  # Auto-approve for testing
         )
         
         self.assertTrue(result, "Failed to add local package to environment")
@@ -224,7 +225,8 @@ class PackageEnvironmentTests(unittest.TestCase):
         
         result = self.env_manager.add_package_to_environment(
             str(base_pkg_path),
-            "test_env"
+            "test_env",
+            auto_approve=True  # Auto-approve for testing
         )
         self.assertTrue(result, "Failed to add base package to environment")
             
@@ -235,7 +237,8 @@ class PackageEnvironmentTests(unittest.TestCase):
         # Add package to environment
         result = self.env_manager.add_package_to_environment(
             str(pkg_path),
-            "test_env"
+            "test_env",
+            auto_approve=True  # Auto-approve for testing
         )
         
         self.assertTrue(result, "Failed to add package with dependencies")
@@ -252,46 +255,221 @@ class PackageEnvironmentTests(unittest.TestCase):
         self.assertIn("base_pkg_1", package_names, "Base package missing from environment")
         self.assertIn("simple_dep_pkg", package_names, "Dependent package missing from environment")
     
-    def test_add_complex_dependencies(self):
-        """Test adding a package with complex dependencies."""
+    def test_add_package_with_some_dependencies_already_present(self):
+        """Test adding a package where some dependencies are already present and others are not."""
         # Create an environment
         self.env_manager.create_environment("test_env", "Test environment")
         
-        # First add all the base packages that are dependencies
-        for base_pkg in ["base_pkg_1", "base_pkg_2", "python_dep_pkg"]:
-            pkg_path = self.hatch_dev_path / base_pkg
-            self.assertTrue(pkg_path.exists(), f"Base package not found: {pkg_path}")
-            
-            result = self.env_manager.add_package_to_environment(
-                str(pkg_path),
-                "test_env"
-            )
-            self.assertTrue(result, f"Failed to add base package: {base_pkg}")
+        # First add only one of the dependencies that complex_dep_pkg needs
+        base_pkg_path = self.hatch_dev_path / "base_pkg_1"
+        self.assertTrue(base_pkg_path.exists(), f"Base package not found: {base_pkg_path}")
         
-        # Now add the complex dependency package
+        result = self.env_manager.add_package_to_environment(
+            str(base_pkg_path),
+            "test_env",
+            auto_approve=True  # Auto-approve for testing
+        )
+        self.assertTrue(result, "Failed to add base package to environment")
+        
+        # Verify base_pkg_1 is in the environment
+        env_data = self.env_manager.get_environments().get("test_env")
+        packages = env_data.get("packages", [])
+        self.assertEqual(len(packages), 1, "Base package not added correctly")
+        self.assertEqual(packages[0]["name"], "base_pkg_1", "Wrong package added")
+        
+        # Now add complex_dep_pkg which depends on base_pkg_1, base_pkg_2
+        # base_pkg_1 should be satisfied, base_pkg_2 should need installation
         complex_pkg_path = self.hatch_dev_path / "complex_dep_pkg"
         self.assertTrue(complex_pkg_path.exists(), f"Complex package not found: {complex_pkg_path}")
         
         result = self.env_manager.add_package_to_environment(
             str(complex_pkg_path),
-            "test_env"
+            "test_env",
+            auto_approve=True  # Auto-approve for testing
         )
         
-        # This should succeed because all dependencies are satisfied
-        self.assertTrue(result, "Failed to add package with complex dependencies")
+        self.assertTrue(result, "Failed to add package with mixed dependency states")
         
-        # Verify all packages are in the environment
+        # Verify all required packages are now in the environment
         env_data = self.env_manager.get_environments().get("test_env")
-        self.assertIsNotNone(env_data, "Environment data not found")
-        
         packages = env_data.get("packages", [])
-        
-        # Check all expected packages are there
-        expected_packages = ["base_pkg_1", "base_pkg_2", "python_dep_pkg", "complex_dep_pkg"]
+
+        # Should have base_pkg_1 (already present), base_pkg_2, and complex_dep_pkg
+        expected_packages = ["base_pkg_1", "base_pkg_2", "complex_dep_pkg"]
         package_names = [pkg["name"] for pkg in packages]
         
         for pkg_name in expected_packages:
             self.assertIn(pkg_name, package_names, f"Package {pkg_name} missing from environment")
+    
+    def test_add_package_with_all_dependencies_already_present(self):
+        """Test adding a package where all dependencies are already present."""
+        # Create an environment
+        self.env_manager.create_environment("test_env", "Test environment")
+        
+        # First add all dependencies that simple_dep_pkg needs
+        base_pkg_path = self.hatch_dev_path / "base_pkg_1"
+        self.assertTrue(base_pkg_path.exists(), f"Base package not found: {base_pkg_path}")
+        
+        result = self.env_manager.add_package_to_environment(
+            str(base_pkg_path),
+            "test_env",
+            auto_approve=True  # Auto-approve for testing
+        )
+        self.assertTrue(result, "Failed to add base package to environment")
+        
+        # Verify base package is installed
+        env_data = self.env_manager.get_environments().get("test_env")
+        packages = env_data.get("packages", [])
+        self.assertEqual(len(packages), 1, "Base package not added correctly")
+        
+        # Now add simple_dep_pkg which only depends on base_pkg_1 (which is already present)
+        simple_pkg_path = self.hatch_dev_path / "simple_dep_pkg"
+        self.assertTrue(simple_pkg_path.exists(), f"Simple package not found: {simple_pkg_path}")
+        
+        result = self.env_manager.add_package_to_environment(
+            str(simple_pkg_path),
+            "test_env",
+            auto_approve=True  # Auto-approve for testing
+        )
+        
+        self.assertTrue(result, "Failed to add package with all dependencies satisfied")
+        
+        # Verify both packages are in the environment - no new dependencies should be added
+        env_data = self.env_manager.get_environments().get("test_env")
+        packages = env_data.get("packages", [])
+        
+        # Should have base_pkg_1 (already present) and simple_dep_pkg (newly added)
+        expected_packages = ["base_pkg_1", "simple_dep_pkg"]
+        package_names = [pkg["name"] for pkg in packages]
+        
+        self.assertEqual(len(packages), 2, "Unexpected number of packages in environment")
+        for pkg_name in expected_packages:
+            self.assertIn(pkg_name, package_names, f"Package {pkg_name} missing from environment")
+    
+    def test_add_package_with_version_constraint_satisfaction(self):
+        """Test adding a package with version constraints where dependencies are satisfied."""
+        # Create an environment
+        self.env_manager.create_environment("test_env", "Test environment")
+        
+        # Add base_pkg_1 with a specific version
+        base_pkg_path = self.hatch_dev_path / "base_pkg_1"
+        self.assertTrue(base_pkg_path.exists(), f"Base package not found: {base_pkg_path}")
+        
+        result = self.env_manager.add_package_to_environment(
+            str(base_pkg_path),
+            "test_env",
+            auto_approve=True  # Auto-approve for testing
+        )
+        self.assertTrue(result, "Failed to add base package to environment")
+        
+        # Look for a package that has version constraints to test against
+        # For now, we'll simulate this by trying to add another package that depends on base_pkg_1
+        simple_pkg_path = self.hatch_dev_path / "simple_dep_pkg"
+        self.assertTrue(simple_pkg_path.exists(), f"Simple package not found: {simple_pkg_path}")
+        
+        result = self.env_manager.add_package_to_environment(
+            str(simple_pkg_path),
+            "test_env",
+            auto_approve=True  # Auto-approve for testing
+        )
+        
+        self.assertTrue(result, "Failed to add package with version constraint dependencies")
+        
+        # Verify packages are correctly installed
+        env_data = self.env_manager.get_environments().get("test_env")
+        packages = env_data.get("packages", [])
+        package_names = [pkg["name"] for pkg in packages]
+        
+        self.assertIn("base_pkg_1", package_names, "Base package missing from environment")
+        self.assertIn("simple_dep_pkg", package_names, "Dependent package missing from environment")
+    
+    def test_add_package_with_mixed_dependency_types(self):
+        """Test adding a package with mixed hatch and python dependencies."""
+        # Create an environment
+        self.env_manager.create_environment("test_env", "Test environment")
+        
+        # Add a package that has both hatch and python dependencies
+        python_dep_pkg_path = self.hatch_dev_path / "python_dep_pkg"
+        self.assertTrue(python_dep_pkg_path.exists(), f"Python dependency package not found: {python_dep_pkg_path}")
+        
+        result = self.env_manager.add_package_to_environment(
+            str(python_dep_pkg_path),
+            "test_env",
+            auto_approve=True  # Auto-approve for testing
+        )
+        
+        self.assertTrue(result, "Failed to add package with mixed dependency types")
+        
+        # Verify package was added
+        env_data = self.env_manager.get_environments().get("test_env")
+        packages = env_data.get("packages", [])
+        package_names = [pkg["name"] for pkg in packages]
+        
+        self.assertIn("python_dep_pkg", package_names, "Package with mixed dependencies missing from environment")
+        
+        # Now add a package that depends on the python_dep_pkg (should be satisfied)
+        # and also depends on other packages (should need installation)
+        complex_pkg_path = self.hatch_dev_path / "complex_dep_pkg"
+        self.assertTrue(complex_pkg_path.exists(), f"Complex package not found: {complex_pkg_path}")
+        
+        result = self.env_manager.add_package_to_environment(
+            str(complex_pkg_path),
+            "test_env",
+            auto_approve=True  # Auto-approve for testing
+        )
+        
+        self.assertTrue(result, "Failed to add package with mixed satisfied/unsatisfied dependencies")
+        
+        # Verify all expected packages are present
+        env_data = self.env_manager.get_environments().get("test_env")
+        packages = env_data.get("packages", [])
+        package_names = [pkg["name"] for pkg in packages]
+        
+        # Should have python_dep_pkg (already present) plus any other dependencies of complex_dep_pkg
+        self.assertIn("python_dep_pkg", package_names, "Originally installed package missing")
+        self.assertIn("complex_dep_pkg", package_names, "New package missing from environment")
+    
+    def test_add_package_with_system_dependency(self):
+        """Test adding a package with a system dependency."""
+        self.env_manager.create_environment("test_env", "Test environment")
+
+        # Add a package that declares a system dependency (e.g., 'curl')
+        system_dep_pkg_path = self.hatch_dev_path / "system_dep_pkg"
+        self.assertTrue(system_dep_pkg_path.exists(), f"System dependency package not found: {system_dep_pkg_path}")
+
+        result = self.env_manager.add_package_to_environment(
+            str(system_dep_pkg_path),
+            "test_env",
+            auto_approve=True
+        )
+        self.assertTrue(result, "Failed to add package with system dependency")
+
+        # Verify package was added
+        env_data = self.env_manager.get_environments().get("test_env")
+        packages = env_data.get("packages", [])
+        package_names = [pkg["name"] for pkg in packages]
+        self.assertIn("system_dep_pkg", package_names, "System dependency package missing from environment")
+
+    def test_add_package_with_docker_dependency(self):
+        """Test adding a package with a docker dependency."""
+        self.env_manager.create_environment("test_env", "Test environment")
+
+        # Add a package that declares a docker dependency (e.g., 'redis:latest')
+        docker_dep_pkg_path = self.hatch_dev_path / "docker_dep_pkg"
+        self.assertTrue(docker_dep_pkg_path.exists(), f"Docker dependency package not found: {docker_dep_pkg_path}")
+
+        result = self.env_manager.add_package_to_environment(
+            str(docker_dep_pkg_path),
+            "test_env",
+            auto_approve=True
+        )
+        self.assertTrue(result, "Failed to add package with docker dependency")
+
+        # Verify package was added
+        env_data = self.env_manager.get_environments().get("test_env")
+        packages = env_data.get("packages", [])
+        package_names = [pkg["name"] for pkg in packages]
+        self.assertIn("docker_dep_pkg", package_names, "Docker dependency package missing from environment")
 
 if __name__ == "__main__":
     unittest.main()
