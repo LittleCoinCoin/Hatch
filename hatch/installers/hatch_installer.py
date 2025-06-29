@@ -90,6 +90,15 @@ class HatchInstaller(DependencyInstaller):
         Raises:
             InstallationError: If installation fails for any reason.
         """
+
+        self.logger.debug(f"Installing Hatch dependency: {dependency}")
+        if not self.validate_dependency(dependency):
+            self.logger.error(f"Invalid dependency format: {dependency}")
+            raise InstallationError("Invalid dependency object",
+                                    dependency_name=dependency.get("name"),
+                                    error_code="INVALID_HATCH_DEPENDENCY_FORMAT",
+                                    )
+
         name = dependency["name"]
         version = dependency["resolved_version"]
         uri = dependency["uri"]
@@ -118,6 +127,7 @@ class HatchInstaller(DependencyInstaller):
                 artifacts=result_path,
                 metadata={"name": name, "version": version}
             )
+            
         except (PackageLoaderError, Exception) as e:
             self.logger.error(f"Failed to install {name}: {e}")
             raise InstallationError(f"Failed to install {name}: {e}", dependency_name=name, cause=e)
@@ -137,6 +147,12 @@ class HatchInstaller(DependencyInstaller):
         Raises:
             InstallationError: If uninstall fails for any reason.
         """
+        if not self.validate_dependency(dependency):
+            raise InstallationError("Invalid dependency object",
+                                    dependency_name=dependency.get("name"),
+                                    error_code="INVALID_HATCH_DEPENDENCY_FORMAT",
+                                    )
+
         name = dependency["name"]
         target_dir = Path(context.environment_path) / name
         try:
