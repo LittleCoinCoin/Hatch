@@ -56,6 +56,9 @@ def main():
     env_create_parser = env_subparsers.add_parser("create", help="Create a new environment")
     env_create_parser.add_argument("name", help="Environment name")
     env_create_parser.add_argument("--description", "-D", default="", help="Environment description")
+    env_create_parser.add_argument("--python-version", help="Python version for the environment (e.g., 3.11, 3.12)")
+    env_create_parser.add_argument("--no-python", action="store_true", 
+                                   help="Don't create a Python environment using conda/mamba")
     
     # Remove environment command
     env_remove_parser = env_subparsers.add_parser("remove", help="Remove an environment")
@@ -70,6 +73,41 @@ def main():
     
     # Show current environment command
     env_subparsers.add_parser("current", help="Show the current environment")
+    
+    # Python environment management commands - advanced subcommands
+    env_python_subparsers = env_subparsers.add_parser("python", help="Manage Python environments").add_subparsers(
+        dest="python_command", help="Python environment command to execute"
+    )
+    
+    # Initialize Python environment
+    python_init_parser = env_python_subparsers.add_parser("init", help="Initialize Python environment")
+    python_init_parser.add_argument("name", help="Environment name")
+    python_init_parser.add_argument("--python-version", help="Python version (e.g., 3.11, 3.12)")
+    python_init_parser.add_argument("--force", action="store_true", help="Force recreation if exists")
+    
+    # Show Python environment info
+    python_info_parser = env_python_subparsers.add_parser("info", help="Show Python environment information")
+    python_info_parser.add_argument("name", help="Environment name")
+    python_info_parser.add_argument("--detailed", action="store_true", help="Show detailed diagnostics")
+    
+    # Remove Python environment
+    python_remove_parser = env_python_subparsers.add_parser("remove", help="Remove Python environment")
+    python_remove_parser.add_argument("name", help="Environment name")
+    python_remove_parser.add_argument("--force", action="store_true", help="Force removal without confirmation")
+    
+    # Launch Python shell
+    python_shell_parser = env_python_subparsers.add_parser("shell", help="Launch Python shell in environment")
+    python_shell_parser.add_argument("name", help="Environment name")
+    python_shell_parser.add_argument("--cmd", help="Command to run in the shell (optional)")
+    
+    # Legacy Python environment management (backward compatibility)
+    env_python_parser = env_subparsers.add_parser("python-legacy", help="Legacy Python environment commands")
+    env_python_parser.add_argument("action", choices=["add", "remove", "info"], 
+                                   help="Python environment action")
+    env_python_parser.add_argument("name", help="Environment name")
+    env_python_parser.add_argument("--python-version", help="Python version (for add action)")
+    env_python_parser.add_argument("--force", action="store_true", 
+                                   help="Force recreation (for add action)")
     
     # Package management commands
     pkg_subparsers = subparsers.add_parser("package", help="Package management commands").add_subparsers(
@@ -132,8 +170,28 @@ def main():
         
     elif args.command == "env":
         if args.env_command == "create":
-            if env_manager.create_environment(args.name, args.description):
+            # Determine whether to create Python environment
+            create_python_env = not args.no_python
+            python_version = getattr(args, 'python_version', None)
+            
+            if env_manager.create_environment(args.name, args.description, 
+                                            python_version=python_version,
+                                            create_python_env=create_python_env):
                 print(f"Environment created: {args.name}")
+                
+                # Show Python environment status
+                if create_python_env and env_manager.is_python_environment_available():
+                    python_exec = env_manager.python_env_manager.get_python_executable(args.name)
+                    if python_exec:
+                        python_version_info = env_manager.python_env_manager.get_python_version(args.name)
+                        print(f"Python environment: {python_exec}")
+                        if python_version_info:
+                            print(f"Python version: {python_version_info}")
+                    else:
+                        print("Python environment creation failed")
+                elif create_python_env:
+                    print("Python environment requested but conda/mamba not available")
+                
                 return 0
             else:
                 print(f"Failed to create environment: {args.name}")
@@ -150,10 +208,42 @@ def main():
         elif args.env_command == "list":
             environments = env_manager.list_environments()
             print("Available environments:")
+            
+            # Check if conda/mamba is available for status info
+            conda_available = env_manager.is_python_environment_available()
+            
             for env in environments:
                 current_marker = "* " if env.get("is_current") else "  "
                 description = f" - {env.get('description')}" if env.get("description") else ""
+                
+                # Show basic environment info
                 print(f"{current_marker}{env.get('name')}{description}")
+                
+                # Show Python environment info if available
+                python_env = env.get("python_environment", False)
+                if python_env:
+                    python_info = env_manager.get_python_environment_info(env.get('name'))
+                    if python_info:
+                        python_version = python_info.get('python_version', 'Unknown')
+                        conda_env = python_info.get('conda_env_name', 'N/A')
+                        print(f"    Python: {python_version} (conda: {conda_env})")
+                    else:
+                        print(f"    Python: Configured but unavailable")
+                elif conda_available:
+                    print(f"    Python: Not configured")
+                else:
+                    print(f"    Python: Conda/mamba not available")
+                    
+            # Show conda/mamba status
+            if conda_available:
+                manager_info = env_manager.python_env_manager.get_manager_info()
+                print(f"\nPython Environment Manager:")
+                print(f"  Conda executable: {manager_info.get('conda_executable', 'Not found')}")
+                print(f"  Mamba executable: {manager_info.get('mamba_executable', 'Not found')}")
+                print(f"  Preferred manager: {manager_info.get('preferred_manager', 'N/A')}")
+            else:
+                print(f"\nPython Environment Manager: Conda/mamba not available")
+                
             return 0
             
         elif args.env_command == "use":
@@ -168,6 +258,139 @@ def main():
             current_env = env_manager.get_current_environment()
             print(f"Current environment: {current_env}")
             return 0
+            
+        elif args.env_command == "python":
+            # Advanced Python environment management
+            if hasattr(args, 'python_command'):
+                if args.python_command == "init":
+                    python_version = getattr(args, 'python_version', None)
+                    force = getattr(args, 'force', False)
+                    
+                    if env_manager.create_python_environment_only(args.name, python_version, force):
+                        print(f"Python environment initialized for: {args.name}")
+                        
+                        # Show Python environment info
+                        python_info = env_manager.get_python_environment_info(args.name)
+                        if python_info:
+                            print(f"  Python executable: {python_info['python_executable']}")
+                            print(f"  Python version: {python_info.get('python_version', 'Unknown')}")
+                            print(f"  Conda environment: {python_info.get('conda_env_name', 'N/A')}")
+                        
+                        return 0
+                    else:
+                        print(f"Failed to initialize Python environment for: {args.name}")
+                        return 1
+                        
+                elif args.python_command == "info":
+                    detailed = getattr(args, 'detailed', False)
+                    python_info = env_manager.get_python_environment_info(args.name)
+                    
+                    if python_info:
+                        print(f"Python environment info for '{args.name}':")
+                        print(f"  Status: {'Active' if python_info.get('enabled', False) else 'Inactive'}")
+                        print(f"  Python executable: {python_info['python_executable']}")
+                        print(f"  Python version: {python_info.get('python_version', 'Unknown')}")
+                        print(f"  Conda environment: {python_info.get('conda_env_name', 'N/A')}")
+                        print(f"  Environment path: {python_info['environment_path']}")
+                        print(f"  Created: {python_info.get('created_at', 'Unknown')}")
+                        print(f"  Package count: {python_info.get('package_count', 0)}")
+                        
+                        if detailed:
+                            print(f"\nDiagnostics:")
+                            diagnostics = env_manager.get_python_environment_diagnostics(args.name)
+                            if diagnostics:
+                                for key, value in diagnostics.items():
+                                    print(f"  {key}: {value}")
+                            else:
+                                print("  No diagnostics available")
+                        
+                        return 0
+                    else:
+                        print(f"No Python environment found for: {args.name}")
+                        
+                        # Show diagnostics for missing environment
+                        if detailed:
+                            print("\nDiagnostics:")
+                            general_diagnostics = env_manager.get_python_manager_diagnostics()
+                            for key, value in general_diagnostics.items():
+                                print(f"  {key}: {value}")
+                        
+                        return 1
+                        
+                elif args.python_command == "remove":
+                    force = getattr(args, 'force', False)
+                    
+                    if not force:
+                        # Ask for confirmation
+                        response = input(f"Remove Python environment for '{args.name}'? [y/N]: ")
+                        if response.lower() not in ['y', 'yes']:
+                            print("Operation cancelled")
+                            return 0
+                    
+                    if env_manager.remove_python_environment_only(args.name):
+                        print(f"Python environment removed from: {args.name}")
+                        return 0
+                    else:
+                        print(f"Failed to remove Python environment from: {args.name}")
+                        return 1
+                        
+                elif args.python_command == "shell":
+                    cmd = getattr(args, 'cmd', None)
+                    
+                    if env_manager.launch_python_shell(args.name, cmd):
+                        return 0
+                    else:
+                        print(f"Failed to launch Python shell for: {args.name}")
+                        return 1
+                else:
+                    print("Unknown Python environment command")
+                    return 1
+            else:
+                print("No Python subcommand specified")
+                return 1
+                
+        elif args.env_command == "python-legacy":
+            # Legacy Python environment commands for backward compatibility
+            if args.action == "add":
+                python_version = getattr(args, 'python_version', None)
+                force = getattr(args, 'force', False)
+                
+                if env_manager.create_python_environment_only(args.name, python_version, force):
+                    print(f"Python environment added to: {args.name}")
+                    
+                    # Show Python environment info
+                    python_exec = env_manager.python_env_manager.get_python_executable(args.name)
+                    if python_exec:
+                        python_version_info = env_manager.python_env_manager.get_python_version(args.name)
+                        print(f"Python executable: {python_exec}")
+                        if python_version_info:
+                            print(f"Python version: {python_version_info}")
+                    
+                    return 0
+                else:
+                    print(f"Failed to add Python environment to: {args.name}")
+                    return 1
+                    
+            elif args.action == "remove":
+                if env_manager.remove_python_environment_only(args.name):
+                    print(f"Python environment removed from: {args.name}")
+                    return 0
+                else:
+                    print(f"Failed to remove Python environment from: {args.name}")
+                    return 1
+                    
+            elif args.action == "info":
+                python_info = env_manager.get_python_environment_info(args.name)
+                if python_info:
+                    print(f"Python environment info for {args.name}:")
+                    print(f"  Path: {python_info['environment_path']}")
+                    print(f"  Python executable: {python_info['python_executable']}")
+                    print(f"  Python version: {python_info.get('python_version', 'Unknown')}")
+                    print(f"  Package count: {python_info.get('package_count', 0)}")
+                    return 0
+                else:
+                    print(f"No Python environment found for: {args.name}")
+                    return 1
         else:
             parser.print_help()
             return 1
