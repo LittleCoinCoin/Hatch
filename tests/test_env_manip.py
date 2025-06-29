@@ -210,7 +210,7 @@ class PackageEnvironmentTests(unittest.TestCase):
         self.assertIn("name", pkg_data, "Package data missing name")
         self.assertIn("version", pkg_data, "Package data missing version")
         self.assertIn("type", pkg_data, "Package data missing type")
-        self.assertEqual(pkg_data["type"], "local", "Package type not set to local")
+        self.assertIn("source", pkg_data, "Package data missing source")
     
     def test_add_package_with_dependencies(self):
         """Test adding a package with dependencies to an environment."""

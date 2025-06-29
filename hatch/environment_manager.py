@@ -325,15 +325,16 @@ class HatchEnvironmentManager:
             )
             
             if success:
-                # Update environment metadata with installed packages
+                # Update environment metadata with installed Hatch packages
                 for pkg_info in installed_packages:
-                    self._add_package_to_env_data(
-                        env_name=env_name,
-                        package_name=pkg_info["name"],
-                        package_version=pkg_info["version"],
-                        package_type=pkg_info["type"],
-                        source=pkg_info["source"]
-                    )
+                    if pkg_info["type"] == "hatch":
+                        self._add_package_to_env_data(
+                            env_name=env_name,
+                            package_name=pkg_info["name"],
+                            package_version=pkg_info["version"],
+                            package_type=pkg_info["type"],
+                            source=pkg_info["source"]
+                        )
                 
                 self.logger.info(f"Successfully installed {len(installed_packages)} packages to environment {env_name}")
                 return True

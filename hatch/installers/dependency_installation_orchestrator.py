@@ -550,7 +550,7 @@ class DependencyInstallerOrchestrator:
             return {
                 "name": package_name,
                 "version": package_version,
-                "type": self._resolved_package_type,
+                "type": "hatch",
                 "source": self._resolved_package_location
             }
             
