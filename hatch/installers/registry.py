@@ -79,7 +79,7 @@ class InstallerRegistry:
         logger.debug(f"Created installer instance for type '{dep_type}': {installer_cls.__name__}")
         return installer
 
-    def can_install(self, dependency: Dict[str, Any]) -> bool:
+    def can_install(self, dep_type: str, dependency: Dict[str, Any]) -> bool:
         """Check if the registry can handle the given dependency.
         
         This method first checks if an installer is registered for the dependency's
@@ -92,8 +92,8 @@ class InstallerRegistry:
         Returns:
             bool: True if the dependency can be installed, False otherwise.
         """
-        dep_type = dependency.get("type")
-        if not dep_type or dep_type not in self._installers:
+        if dep_type not in self._installers:
+            logger.error(f"No installer registered for dependency type '{dep_type}'")
             return False
         
         try:
