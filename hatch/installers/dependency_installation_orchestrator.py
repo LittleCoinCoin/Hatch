@@ -449,9 +449,9 @@ class DependencyInstallerOrchestrator:
         
         # Create comprehensive installation context
         context = InstallationContext(
-            environment_path=env_path / env_name,
+            environment_path=env_path,
             environment_name=env_name,
-            temp_dir=env_path / env_name / ".tmp",
+            temp_dir=env_path / ".tmp",
             cache_dir=self.package_loader.cache_dir if hasattr(self.package_loader, 'cache_dir') else None,
             parallel_enabled=False,  # Future enhancement
             force_reinstall=False,   # Future enhancement
