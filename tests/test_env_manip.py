@@ -41,12 +41,10 @@ class PackageEnvironmentTests(unittest.TestCase):
         env_dir.mkdir(exist_ok=True)
         
         # Create environment manager for testing with isolated test directories
-        self.env_manager = HatchEnvironmentManager(simulation_mode=True, local_registry_cache_path=self.registry_path)
-        
-        # Override environment paths
-        self.env_manager.environments_dir = env_dir
-        self.env_manager.environments_file = env_dir / "environments.json"
-        self.env_manager.current_env_file = env_dir / "current_env"
+        self.env_manager = HatchEnvironmentManager(
+            environments_dir=env_dir,
+            simulation_mode=True,
+            local_registry_cache_path=self.registry_path)
         
         # Initialize environment files with clean state
         self.env_manager._initialize_environments_file()
@@ -429,6 +427,7 @@ class PackageEnvironmentTests(unittest.TestCase):
         self.assertIn("python_dep_pkg", package_names, "Originally installed package missing")
         self.assertIn("complex_dep_pkg", package_names, "New package missing from environment")
     
+    @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
     def test_add_package_with_system_dependency(self):
         """Test adding a package with a system dependency."""
         self.env_manager.create_environment("test_env", "Test environment")

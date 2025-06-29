@@ -10,6 +10,8 @@ from hatch.package_loader import HatchPackageLoader
 from hatch_validator.package_validator import HatchPackageValidator
 from hatch_validator.package.package_service import PackageService
 
+from hatch.installers.installation_context import InstallationStatus
+
 class TestHatchInstaller(unittest.TestCase):
     """Tests for the HatchInstaller using dummy packages from Hatching-Dev."""
 
@@ -118,12 +120,12 @@ class TestHatchInstaller(unittest.TestCase):
         context = DummyContext()
         # Install
         result = self.installer.install(dependency, context)
-        self.assertEqual(result.status, "COMPLETED")
+        self.assertEqual(result.status, InstallationStatus.COMPLETED)
         installed_path = Path(result.installed_path)
         self.assertTrue(installed_path.exists())
         # Uninstall
         uninstall_result = self.installer.uninstall(dependency, context)
-        self.assertEqual(uninstall_result.status, "COMPLETED")
+        self.assertEqual(uninstall_result.status, InstallationStatus.COMPLETED)
         self.assertFalse(installed_path.exists())
 
     def test_installer_rejects_invalid_dependency(self):

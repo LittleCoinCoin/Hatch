@@ -6,8 +6,8 @@ dummy packages.
 """
 
 import unittest
-import platform
 import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from typing import Dict, Any
@@ -216,6 +216,7 @@ class TestSystemInstaller(unittest.TestCase):
         command = self.installer._build_apt_command(dependency, self.mock_context)
         self.assertEqual(command, ["sudo", "apt", "install", "-y", "curl"])
 
+    @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
     @patch('subprocess.run')
     def test_verify_installation_success(self, mock_run):
         """Test successful installation verification."""
@@ -383,6 +384,7 @@ class TestSystemInstaller(unittest.TestCase):
         self.assertTrue(result.metadata["simulation"])
         mock_simulate.assert_called_once()
 
+    @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
     @patch('subprocess.run')
     def test_simulate_installation_success(self, mock_run):
         """Test successful installation simulation."""
@@ -527,6 +529,7 @@ class TestSystemInstallerIntegration(unittest.TestCase):
         
         self.assertTrue(self.installer.can_install(dependency))
 
+    @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
     def test_simulate_curl_installation(self):
         """Test simulating installation of curl package."""
         dependency = {
@@ -566,6 +569,7 @@ class TestSystemInstallerIntegration(unittest.TestCase):
             self.assertEqual(info["dependency_name"], "curl")
             self.assertTrue(info["supported"])
 
+    @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
     def test_install_real_dependency(self):
         """Test installing a real system dependency."""
         dependency = {

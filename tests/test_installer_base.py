@@ -124,7 +124,7 @@ class BaseInstallerTests(unittest.TestCase):
             dependency_name="test_package",
             error_code="DOWNLOAD_FAILED"
         )
-        self.assertEqual(str(error), "Installation failed", f"Expected error message 'Installation failed', got '{str(error)}'")
+        self.assertEqual(error.message, "Installation failed", f"Expected error message 'Installation failed', got '{error.message}'")
         self.assertEqual(error.dependency_name, "test_package", f"Expected dependency_name='test_package', got {error.dependency_name}")
         self.assertEqual(error.error_code, "DOWNLOAD_FAILED", f"Expected error_code='DOWNLOAD_FAILED', got {error.error_code}")
         logger.info("InstallationError test passed")
@@ -182,7 +182,7 @@ class BaseInstallerTests(unittest.TestCase):
         self.assertEqual(info["installer_type"], "mock", f"Expected installer_type='mock', got {info['installer_type']}")
         self.assertEqual(info["dependency_name"], "test_package", f"Expected dependency_name='test_package', got {info['dependency_name']}")
         self.assertEqual(info["resolved_version"], "1.0.0", f"Expected resolved_version='1.0.0', got {info['resolved_version']}")
-        self.assertEqual(info["target_path"], self.env_path, f"Expected target_path={self.env_path}, got {info['target_path']}")
+        self.assertEqual(info["target_path"], str(self.env_path), f"Expected target_path={self.env_path}, got {info['target_path']}")
         self.assertTrue(info["supported"], f"Expected supported=True, got {info['supported']}")
         logger.info("MockInstaller get_installation_info test passed")
     
