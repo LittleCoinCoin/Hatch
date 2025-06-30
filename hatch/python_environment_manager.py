@@ -40,7 +40,7 @@ class PythonEnvironmentManager:
                 Defaults to ~/.hatch/envs.
         """
         self.logger = logging.getLogger("hatch.python_environment_manager")
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.INFO)
         
         # Set up environment directories
         self.environments_dir = environments_dir or (Path.home() / ".hatch" / "envs")
@@ -50,11 +50,11 @@ class PythonEnvironmentManager:
         self.mamba_executable = None
         self._detect_conda_mamba()
         
-        self.logger.info(f"Python environment manager initialized with environments_dir: {self.environments_dir}")
+        self.logger.debug(f"Python environment manager initialized with environments_dir: {self.environments_dir}")
         if self.mamba_executable:
-            self.logger.info(f"Using mamba: {self.mamba_executable}")
+            self.logger.debug(f"Using mamba: {self.mamba_executable}")
         elif self.conda_executable:
-            self.logger.info(f"Using conda: {self.conda_executable}")
+            self.logger.debug(f"Using conda: {self.conda_executable}")
         else:
             self.logger.warning("Neither conda nor mamba found - Python environment management will be limited")
 
@@ -214,17 +214,16 @@ class PythonEnvironmentManager:
             cmd.append("python")
         
         try:
-            self.logger.info(f"Creating Python environment for {env_name} at {env_prefix}")
+            self.logger.debug(f"Creating Python environment for {env_name} at {env_prefix}")
             if python_version:
-                self.logger.info(f"Using Python version: {python_version}")
-            
+                self.logger.debug(f"Using Python version: {python_version}")
+
             result = subprocess.run(
                 cmd,
                 timeout=300  # 5 minutes timeout
             )
             
             if result.returncode == 0:
-                self.logger.info(f"Successfully created Python environment for {env_name}")
                 return True
             else:
                 error_msg = f"Failed to create Python environment (see terminal output)"
@@ -318,9 +317,7 @@ class PythonEnvironmentManager:
                 timeout=120  # 2 minutes timeout
             )
             
-            if result.returncode == 0:
-                self.logger.info(f"Successfully removed Python environment for {env_name}")
-                
+            if result.returncode == 0:              
                 # Clean up any remaining directory structure
                 if env_prefix.exists():
                     try:

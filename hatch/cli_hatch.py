@@ -294,6 +294,9 @@ def main():
                         print(f"  Environment path: {python_info['environment_path']}")
                         print(f"  Created: {python_info.get('created_at', 'Unknown')}")
                         print(f"  Package count: {python_info.get('package_count', 0)}")
+                        print(f"  Packages:")
+                        for pkg in python_info.get('packages', []):
+                            print(f"    - {pkg['name']} ({pkg['version']})")
                         
                         if detailed:
                             print(f"\nDiagnostics:")

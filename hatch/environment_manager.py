@@ -212,13 +212,11 @@ class HatchEnvironmentManager:
             # Configure the dependency orchestrator with the Python executable
             python_env_vars = self.python_env_manager.get_environment_activation_info(env_name)
             self.dependency_orchestrator.set_python_env_vars(python_env_vars)
-            self.logger.info(f"Configured Python environment variables for {env_name}: {python_env_vars}")
         else:
             # Use system Python as fallback
             system_python = sys.executable
             python_env_vars = {"PYTHON": system_python}
             self.dependency_orchestrator.set_python_env_vars(python_env_vars)
-            self.logger.info(f"Using system Python for {env_name}: {python_env_vars}")
     
     def get_current_python_executable(self) -> Optional[str]:
         """Get the Python executable for the current environment.
@@ -696,6 +694,7 @@ class HatchEnvironmentManager:
             
             # Package information
             "package_count": live_info.get("package_count", 0) if live_info else 0,
+            "packages": live_info.get("packages", []) if live_info else [],
             
             # Status information
             "exists": live_info is not None,
