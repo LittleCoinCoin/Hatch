@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock, Mock
 from typing import Dict, Any
 
-from hatch.installers.docker_installer import DockerInstaller, DOCKER_AVAILABLE
+from hatch.installers.docker_installer import DockerInstaller, DOCKER_AVAILABLE, DOCKER_DAEMON_AVAILABLE
 from hatch.installers.installer_base import InstallationError
 from hatch.installers.installation_context import InstallationContext, InstallationResult, InstallationStatus
 
@@ -102,7 +102,7 @@ class TestDockerInstaller(unittest.TestCase):
             f"can_install should return False for non-docker dependency: {dependency}"
         )
 
-    @unittest.skipUnless(DOCKER_AVAILABLE, "Docker library not available")
+    @unittest.skipUnless(DOCKER_AVAILABLE and DOCKER_DAEMON_AVAILABLE, f"Docker library not available or Docker daemon not available: library={DOCKER_AVAILABLE}, daemon={DOCKER_DAEMON_AVAILABLE}")
     def test_can_install_docker_unavailable(self):
         """Test can_install when Docker daemon is unavailable."""
         dependency = {
@@ -251,7 +251,7 @@ class TestDockerInstaller(unittest.TestCase):
             f"Simulation install should call progress_callback twice (start and completion), got {len(progress_calls)} calls: {progress_calls}"
         )
 
-    @unittest.skipUnless(DOCKER_AVAILABLE, "Docker library not available")
+    @unittest.skipUnless(DOCKER_AVAILABLE and DOCKER_DAEMON_AVAILABLE, f"Docker library not available or Docker daemon not available: library={DOCKER_AVAILABLE}, daemon={DOCKER_DAEMON_AVAILABLE}")
     @patch('hatch.installers.docker_installer.docker')
     def test_install_success(self, mock_docker):
         """Test successful Docker image installation."""
@@ -279,7 +279,7 @@ class TestDockerInstaller(unittest.TestCase):
             f"Install should call progress_callback at least once, got {len(progress_calls)} calls: {progress_calls}"
         )
 
-    @unittest.skipUnless(DOCKER_AVAILABLE, "Docker library not available")
+    @unittest.skipUnless(DOCKER_AVAILABLE and DOCKER_DAEMON_AVAILABLE, f"Docker library not available or Docker daemon not available: library={DOCKER_AVAILABLE}, daemon={DOCKER_DAEMON_AVAILABLE}")
     @patch('hatch.installers.docker_installer.docker')
     def test_install_failure(self, mock_docker):
         """Test Docker installation failure."""
@@ -305,7 +305,7 @@ class TestDockerInstaller(unittest.TestCase):
         with self.assertRaises(InstallationError, msg=f"Install should raise InstallationError for invalid dependency: {dependency}"):
             self.installer.install(dependency, self.context)
 
-    @unittest.skipUnless(DOCKER_AVAILABLE, "Docker library not available")
+    @unittest.skipUnless(DOCKER_AVAILABLE and DOCKER_DAEMON_AVAILABLE, f"Docker library not available or Docker daemon not available: library={DOCKER_AVAILABLE}, daemon={DOCKER_DAEMON_AVAILABLE}")
     @patch('hatch.installers.docker_installer.docker')
     def test_uninstall_success(self, mock_docker):
         """Test successful Docker image uninstallation."""
@@ -372,7 +372,7 @@ class TestDockerInstaller(unittest.TestCase):
                 f"get_installation_info: can_install should be False, got {info['can_install']}"
             )
 
-    @unittest.skipUnless(DOCKER_AVAILABLE, "Docker library not available")
+    @unittest.skipUnless(DOCKER_AVAILABLE and DOCKER_DAEMON_AVAILABLE, f"Docker library not available or Docker daemon not available: library={DOCKER_AVAILABLE}, daemon={DOCKER_DAEMON_AVAILABLE}")
     @patch('hatch.installers.docker_installer.docker')
     def test_get_installation_info_image_installed(self, mock_docker):
         """Test get_installation_info for installed image."""
@@ -402,8 +402,8 @@ class TestDockerInstallerIntegration(unittest.TestCase):
 
     def setUp(self):
         """Set up integration test fixtures."""
-        if not DOCKER_AVAILABLE:
-            self.skipTest("Docker library not available")
+        if not DOCKER_AVAILABLE or not DOCKER_DAEMON_AVAILABLE:
+            self.skipTest(f"Docker library not available or Docker daemon not available: library={DOCKER_AVAILABLE}, daemon={DOCKER_DAEMON_AVAILABLE}")
             
         self.installer = DockerInstaller()
         self.temp_dir = tempfile.mkdtemp()

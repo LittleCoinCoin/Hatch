@@ -15,16 +15,24 @@ from .installation_context import InstallationStatus
 logger = logging.getLogger(__name__)
 
 # Handle docker-py import with graceful fallback
+DOCKER_AVAILABLE = False
+DOCKER_DAEMON_AVAILABLE = False
 try:
     import docker
     from docker.errors import DockerException, ImageNotFound, APIError
     DOCKER_AVAILABLE = True
+    try:
+        _docker_client = docker.from_env()
+        _docker_client.ping()
+        DOCKER_DAEMON_AVAILABLE = True
+    except DockerException as e:
+        DOCKER_DAEMON_AVAILABLE = False
+        logger.warning(f"docker-py library is available but Docker daemon is not running or not reachable: {e}")
 except ImportError:
     docker = None
     DockerException = Exception
     ImageNotFound = Exception
     APIError = Exception
-    DOCKER_AVAILABLE = False
     logger.warning("docker-py library not available. Docker installer will be disabled.")
 
 
@@ -283,21 +291,15 @@ class DockerInstaller(DependencyInstaller):
 
     def _is_docker_available(self) -> bool:
         """Check if Docker daemon is available.
+
+        We use the global DOCKER_DAEMON_AVAILABLE flag to determine
+        if Docker is available. It is set to True if the docker-py
+        library is available and the Docker daemon is reachable.
         
         Returns:
             bool: True if Docker daemon is available, False otherwise.
         """
-        if not DOCKER_AVAILABLE:
-            logger.warning("Docker library not available, cannot check Docker daemon status. Install docker-py to enable Docker support.")
-            return False
-            
-        try:
-            client = self._get_docker_client()
-            client.ping()
-            return True
-        except Exception as e:
-            logger.debug(f"Docker daemon not available: {e}")
-            return False
+        return DOCKER_DAEMON_AVAILABLE
 
     def _get_docker_client(self):
         """Get or create Docker client.
