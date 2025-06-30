@@ -33,46 +33,30 @@ class TestPythonEnvironmentManager(unittest.TestCase):
         self.assertEqual(self.manager.environments_dir, self.environments_dir)
         self.assertIsNotNone(self.manager.logger)
 
-    @patch('shutil.which')
-    def test_detect_conda_mamba_with_mamba(self, mock_which):
+    def test_detect_conda_mamba_with_mamba(self):
         """Test conda/mamba detection when mamba is available."""
-        # Mock mamba available
-        mock_which.side_effect = lambda cmd: "/usr/bin/mamba" if cmd == "mamba" else "/usr/bin/conda"
-        
-        with patch('subprocess.run') as mock_run:
-            # Mock successful mamba version check
-            mock_run.return_value = Mock(returncode=0, stdout="mamba 0.24.0")
-            
+        with patch.object(PythonEnvironmentManager, "_detect_manager") as mock_detect:
+            # mamba found, conda found
+            mock_detect.side_effect = lambda manager: "/usr/bin/mamba" if manager == "mamba" else "/usr/bin/conda"
             manager = PythonEnvironmentManager(environments_dir=self.environments_dir)
-            
             self.assertEqual(manager.mamba_executable, "/usr/bin/mamba")
             self.assertEqual(manager.conda_executable, "/usr/bin/conda")
 
-    @patch('shutil.which')
-    def test_detect_conda_mamba_conda_only(self, mock_which):
+    def test_detect_conda_mamba_conda_only(self):
         """Test conda/mamba detection when only conda is available."""
-        # Mock only conda available
-        mock_which.side_effect = lambda cmd: "/usr/bin/conda" if cmd == "conda" else None
-        
-        with patch('subprocess.run') as mock_run:
-            # Mock successful conda version check
-            mock_run.return_value = Mock(returncode=0, stdout="conda 4.12.0")
-            
+        with patch.object(PythonEnvironmentManager, "_detect_manager") as mock_detect:
+            # mamba not found, conda found
+            mock_detect.side_effect = lambda manager: None if manager == "mamba" else "/usr/bin/conda"
             manager = PythonEnvironmentManager(environments_dir=self.environments_dir)
-            
             self.assertIsNone(manager.mamba_executable)
             self.assertEqual(manager.conda_executable, "/usr/bin/conda")
 
-    @patch('shutil.which')
-    def test_detect_conda_mamba_none_available(self, mock_which):
+    def test_detect_conda_mamba_none_available(self):
         """Test conda/mamba detection when neither is available."""
-        # Mock neither available
-        mock_which.return_value = None
-        
-        manager = PythonEnvironmentManager(environments_dir=self.environments_dir)
-        
-        self.assertIsNone(manager.mamba_executable)
-        self.assertIsNone(manager.conda_executable)
+        with patch.object(PythonEnvironmentManager, "_detect_manager", return_value=None):
+            manager = PythonEnvironmentManager(environments_dir=self.environments_dir)
+            self.assertIsNone(manager.mamba_executable)
+            self.assertIsNone(manager.conda_executable)
 
     def test_get_conda_env_name(self):
         """Test conda environment name generation."""

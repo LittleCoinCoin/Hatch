@@ -40,7 +40,7 @@ class PythonEnvironmentManager:
                 Defaults to ~/.hatch/envs.
         """
         self.logger = logging.getLogger("hatch.python_environment_manager")
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(logging.DEBUG)
         
         # Set up environment directories
         self.environments_dir = environments_dir or (Path.home() / ".hatch" / "envs")
@@ -58,74 +58,108 @@ class PythonEnvironmentManager:
         else:
             self.logger.warning("Neither conda nor mamba found - Python environment management will be limited")
 
+    def _detect_manager(self, manager: str) -> Optional[str]:
+        """Detect the given manager ('mamba' or 'conda') executable on the system.
+
+        This function searches for the specified package manager in common installation paths
+        and checks if it is executable.
+
+        Args:
+            manager (str): The name of the package manager to detect ('mamba' or 'conda').
+
+        Returns:
+            Optional[str]: The path to the detected executable, or None if not found.
+        """
+        def find_in_common_paths(names):
+            paths = []
+            if platform.system() == "Windows":
+                candidates = [
+                    os.path.expandvars(r"%USERPROFILE%\miniconda3\Scripts"),
+                    os.path.expandvars(r"%USERPROFILE%\Anaconda3\Scripts"),
+                    r"C:\ProgramData\miniconda3\Scripts",
+                    r"C:\ProgramData\Anaconda3\Scripts",
+                ]
+            else:
+                candidates = [
+                    os.path.expanduser("~/miniconda3/bin"),
+                    os.path.expanduser("~/anaconda3/bin"),
+                    "/opt/conda/bin",
+                ]
+            for base in candidates:
+                for name in names:
+                    exe = os.path.join(base, name)
+                    if os.path.isfile(exe) and os.access(exe, os.X_OK):
+                        paths.append(exe)
+            return paths
+
+        if platform.system() == "Windows":
+            exe_name = f"{manager}.exe"
+        else:
+            exe_name = manager
+
+        # Try environment variable first
+        env_var = os.environ.get(f"{manager.upper()}_EXE")
+        paths = [env_var] if env_var else []
+        paths += [shutil.which(exe_name)]
+        paths += find_in_common_paths([exe_name])
+        paths = [p for p in paths if p]
+
+        for path in paths:
+            self.logger.debug(f"Trying to detect {manager} at: {path}")
+            try:
+                result = subprocess.run(
+                    [path, "--version"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if result.returncode == 0:
+                    self.logger.debug(f"Detected {manager} at: {path}")
+                    return path
+            except Exception as e:
+                self.logger.warning(f"{manager.capitalize()} not found or not working at {path}: {e}")
+        return None
+
     def _detect_conda_mamba(self) -> None:
         """Detect available conda/mamba executables on the system.
-        
+
         Tries to find mamba first (preferred), then conda as fallback.
         Sets self.mamba_executable and self.conda_executable based on availability.
         """
-        # Try to detect mamba first (preferred)
-        try:
-            mamba_path = shutil.which("mamba")
-            if mamba_path:
-                # Verify mamba works
-                result = subprocess.run(
-                    [mamba_path, "--version"], 
-                    capture_output=True, 
-                    text=True, 
-                    timeout=10
-                )
-                if result.returncode == 0:
-                    self.mamba_executable = mamba_path
-                    self.logger.debug(f"Detected mamba at: {mamba_path}")
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
-            self.logger.debug("Mamba not found or not working")
-        
-        # Try to detect conda
-        try:
-            conda_path = shutil.which("conda")
-            if conda_path:
-                # Verify conda works
-                result = subprocess.run(
-                    [conda_path, "--version"], 
-                    capture_output=True, 
-                    text=True, 
-                    timeout=10
-                )
-                if result.returncode == 0:
-                    self.conda_executable = conda_path
-                    self.logger.debug(f"Detected conda at: {conda_path}")
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
-            self.logger.debug("Conda not found or not working")
+        self.mamba_executable = self._detect_manager("mamba")
+        self.conda_executable = self._detect_manager("conda")
 
-    def _validate_conda_installation(self) -> bool:
-        """Validate that conda/mamba installation is functional.
+    # def _validate_conda_installation(self) -> bool:
+    #     """Validate that conda/mamba installation is functional.
         
-        Returns:
-            bool: True if conda or mamba is available and functional, False otherwise.
-        """
-        if not (self.conda_executable or self.mamba_executable):
-            return False
+    #     Returns:
+    #         bool: True if conda or mamba is available and functional, False otherwise.
+    #     """
+    #     if not (self.conda_executable or self.mamba_executable):
+    #         return False
         
-        # Use mamba if available, otherwise conda
-        executable = self.mamba_executable or self.conda_executable
+    #     # Use mamba if available, otherwise conda
+    #     executable = self.get_preferred_executable()
         
-        try:
-            # Test basic functionality
-            result = subprocess.run(
-                [executable, "info", "--json"], 
-                capture_output=True, 
-                text=True, 
-                timeout=30
-            )
-            if result.returncode == 0:
-                # Try to parse the JSON to ensure it's valid
-                json.loads(result.stdout)
-                return True
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError, json.JSONDecodeError):
-            self.logger.error(f"Failed to validate conda/mamba installation: {result.stderr if 'result' in locals() else 'Unknown error'}")
-        
-        return False
+    #     try:
+    #         # Test basic functionality
+    #         result = subprocess.run(
+    #             [executable, "info", "--json"], 
+    #             capture_output=True, 
+    #             text=True, 
+    #             timeout=30
+    #         )
+    #         if result.returncode == 0:
+    #             # Try to parse the JSON to ensure it's valid
+    #             json.loads(result.stdout)
+    #             return True
+    #     except (subprocess.TimeoutExpired, subprocess.SubprocessError, json.JSONDecodeError):
+    #         self.logger.error(f"Failed to validate conda/mamba installation: {result.stderr if 'result' in locals() else 'Unknown error'}")
+    #     except Exception as e:
+    #         self.logger.error(f"Unexpected error validating conda/mamba installation: {e}")
+
+    #     self.logger.error("Conda/mamba installation validation failed")
+    #     return False
 
     def is_available(self) -> bool:
         """Check if Python environment management is available.
@@ -133,7 +167,9 @@ class PythonEnvironmentManager:
         Returns:
             bool: True if conda/mamba is available and functional, False otherwise.
         """
-        return self._validate_conda_installation()
+        if self.get_preferred_executable():
+            return True
+        return False
 
     def get_preferred_executable(self) -> Optional[str]:
         """Get the preferred conda/mamba executable.
@@ -189,7 +225,6 @@ class PythonEnvironmentManager:
             raise PythonEnvironmentError("Neither conda nor mamba is available for Python environment management")
         
         executable = self.get_preferred_executable()
-        conda_env_name = self._get_conda_env_name(env_name)
         env_prefix = self._get_conda_env_prefix(env_name)
         
         # Check if environment already exists
@@ -224,7 +259,7 @@ class PythonEnvironmentManager:
                 self.logger.info(f"Successfully created Python environment for {env_name}")
                 return True
             else:
-                error_msg = f"Failed to create Python environment: {result.stderr}"
+                error_msg = f"Failed to create Python environment (see terminal output)"
                 self.logger.error(error_msg)
                 raise PythonEnvironmentError(error_msg)
                 
@@ -639,6 +674,29 @@ class PythonEnvironmentManager:
             return False
 
     def environment_exists(self, env_name: str) -> bool:
+        """Check if a Python environment exists.
+        
+        Args:
+            env_name (str): Environment name.
+            
+        Returns:
+            bool: True if environment exists, False otherwise.
+        """
+        return self._conda_env_exists(env_name)
+    
+    def get_environment_path(self, env_name: str) -> Optional[Path]:
+        """Get the file system path for a Python environment.
+        
+        Args:
+            env_name (str): Environment name.
+            
+        Returns:
+            Path: Environment path or None if not found.
+        """
+        if not self.environment_exists(env_name):
+            return None
+            
+        return self._get_conda_env_prefix(env_name)
         """Check if a Python environment exists.
         
         Args:
