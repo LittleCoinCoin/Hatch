@@ -11,6 +11,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from hatch.environment_manager import HatchEnvironmentManager
+from hatch.installers.docker_installer import DOCKER_DAEMON_AVAILABLE
 
 # Configure logging
 logging.basicConfig(
@@ -45,10 +46,6 @@ class PackageEnvironmentTests(unittest.TestCase):
             environments_dir=env_dir,
             simulation_mode=True,
             local_registry_cache_path=self.registry_path)
-        
-        # Initialize environment files with clean state
-        self.env_manager._initialize_environments_file()
-        self.env_manager._initialize_current_env_file()
         
         # Reload environments to ensure clean state
         self.env_manager.reload_environments()
@@ -215,7 +212,7 @@ class PackageEnvironmentTests(unittest.TestCase):
     def test_add_package_with_dependencies(self):
         """Test adding a package with dependencies to an environment."""
         # Create an environment
-        self.env_manager.create_environment("test_env", "Test environment")
+        self.env_manager.create_environment("test_env", "Test environment", create_python_env=False)
         
         # First add the base package that is a dependency
         base_pkg_path = self.hatch_dev_path / "base_pkg_1"
@@ -256,8 +253,8 @@ class PackageEnvironmentTests(unittest.TestCase):
     def test_add_package_with_some_dependencies_already_present(self):
         """Test adding a package where some dependencies are already present and others are not."""
         # Create an environment
-        self.env_manager.create_environment("test_env", "Test environment")
-        
+        self.env_manager.create_environment("test_env", "Test environment", create_python_env=False)
+
         # First add only one of the dependencies that complex_dep_pkg needs
         base_pkg_path = self.hatch_dev_path / "base_pkg_1"
         self.assertTrue(base_pkg_path.exists(), f"Base package not found: {base_pkg_path}")
@@ -302,8 +299,8 @@ class PackageEnvironmentTests(unittest.TestCase):
     def test_add_package_with_all_dependencies_already_present(self):
         """Test adding a package where all dependencies are already present."""
         # Create an environment
-        self.env_manager.create_environment("test_env", "Test environment")
-        
+        self.env_manager.create_environment("test_env", "Test environment", create_python_env=False)
+
         # First add all dependencies that simple_dep_pkg needs
         base_pkg_path = self.hatch_dev_path / "base_pkg_1"
         self.assertTrue(base_pkg_path.exists(), f"Base package not found: {base_pkg_path}")
@@ -347,7 +344,7 @@ class PackageEnvironmentTests(unittest.TestCase):
     def test_add_package_with_version_constraint_satisfaction(self):
         """Test adding a package with version constraints where dependencies are satisfied."""
         # Create an environment
-        self.env_manager.create_environment("test_env", "Test environment")
+        self.env_manager.create_environment("test_env", "Test environment", create_python_env=False)
         
         # Add base_pkg_1 with a specific version
         base_pkg_path = self.hatch_dev_path / "base_pkg_1"
@@ -430,7 +427,7 @@ class PackageEnvironmentTests(unittest.TestCase):
     @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
     def test_add_package_with_system_dependency(self):
         """Test adding a package with a system dependency."""
-        self.env_manager.create_environment("test_env", "Test environment")
+        self.env_manager.create_environment("test_env", "Test environment", create_python_env=False)
 
         # Add a package that declares a system dependency (e.g., 'curl')
         system_dep_pkg_path = self.hatch_dev_path / "system_dep_pkg"
@@ -449,9 +446,11 @@ class PackageEnvironmentTests(unittest.TestCase):
         package_names = [pkg["name"] for pkg in packages]
         self.assertIn("system_dep_pkg", package_names, "System dependency package missing from environment")
 
+    # Skip if Docker is not available
+    @unittest.skipUnless(DOCKER_DAEMON_AVAILABLE, "Docker dependency test skipped due to Docker not being available")
     def test_add_package_with_docker_dependency(self):
         """Test adding a package with a docker dependency."""
-        self.env_manager.create_environment("test_env", "Test environment")
+        self.env_manager.create_environment("test_env", "Test environment", create_python_env=False)
 
         # Add a package that declares a docker dependency (e.g., 'redis:latest')
         docker_dep_pkg_path = self.hatch_dev_path / "docker_dep_pkg"

@@ -61,8 +61,8 @@ if __name__ == "__main__":
         # Run only PythonEnvironmentManager integration tests (requires conda/mamba)
         logger.info("Running PythonEnvironmentManager integration tests only...")
         test_integration = test_loader.loadTestsFromName("test_python_environment_manager.TestPythonEnvironmentManagerIntegration")
-        #test_enhanced = test_loader.loadTestsFromName("test_python_environment_manager.TestPythonEnvironmentManagerEnhancedFeatures")
-        test_suite = unittest.TestSuite([test_integration])#, test_enhanced])
+        test_enhanced = test_loader.loadTestsFromName("test_python_environment_manager.TestPythonEnvironmentManagerEnhancedFeatures")
+        test_suite = unittest.TestSuite([test_integration, test_enhanced])
     elif len(sys.argv) > 1 and sys.argv[1] == "--python-env-manager-all":
         # Run all PythonEnvironmentManager tests
         logger.info("Running all PythonEnvironmentManager tests...")

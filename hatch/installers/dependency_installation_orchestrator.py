@@ -66,12 +66,32 @@ class DependencyInstallerOrchestrator:
         self.registry_service = registry_service
         self.registry_data = registry_data
         
+        # Python executable configuration for context
+        self._python_executable: Optional[str] = None
+        
         # These will be set during package resolution
         self.package_service: Optional[PackageService] = None
         self.dependency_graph_builder: Optional[HatchDependencyGraphBuilder] = None
         self._resolved_package_path: Optional[Path] = None
         self._resolved_package_type: Optional[str] = None
         self._resolved_package_location: Optional[str] = None
+
+    def set_python_executable(self, python_executable: str) -> None:
+        """Set the Python executable to use for Python package installations.
+        
+        Args:
+            python_executable (str): Path to the Python executable.
+        """
+        self._python_executable = python_executable
+        self.logger.debug(f"Python executable set to: {python_executable}")
+
+    def get_python_executable(self) -> Optional[str]:
+        """Get the configured Python executable.
+        
+        Returns:
+            str: Path to Python executable, None if not configured.
+        """
+        return self._python_executable
 
     def install_dependencies(self, 
                            package_path_or_name: str,
@@ -464,6 +484,10 @@ class DependencyInstallerOrchestrator:
                 "main_package_type": self._resolved_package_type
             }
         )
+        
+        # Configure Python executable if available
+        if self._python_executable:
+            context.set_config("python_executable", self._python_executable)
         
         try:            
             # Install dependencies by type using appropriate installers

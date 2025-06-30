@@ -58,6 +58,17 @@ class InstallationContext:
         if self.extra_config is None:
             return default
         return self.extra_config.get(key, default)
+    
+    def set_config(self, key: str, value: Any) -> None:
+        """Set a configuration value in extra_config.
+        
+        Args:
+            key (str): Configuration key to set.
+            value (Any): Value to set for the key.
+        """
+        if self.extra_config is None:
+            self.extra_config = {}
+        self.extra_config[key] = value
 
 
 class InstallationStatus(Enum):
