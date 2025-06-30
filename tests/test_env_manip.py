@@ -182,6 +182,7 @@ class PackageEnvironmentTests(unittest.TestCase):
         """Test adding a local package to an environment."""
         # Create an environment
         self.env_manager.create_environment("test_env", "Test environment")
+        self.env_manager.set_current_environment("test_env")
         
         # Use arithmetic_pkg from Hatching-Dev
         pkg_path = self.hatch_dev_path / "arithmetic_pkg"
@@ -213,7 +214,8 @@ class PackageEnvironmentTests(unittest.TestCase):
         """Test adding a package with dependencies to an environment."""
         # Create an environment
         self.env_manager.create_environment("test_env", "Test environment", create_python_env=False)
-        
+        self.env_manager.set_current_environment("test_env")
+
         # First add the base package that is a dependency
         base_pkg_path = self.hatch_dev_path / "base_pkg_1"
         self.assertTrue(base_pkg_path.exists(), f"Base package not found: {base_pkg_path}")
@@ -254,7 +256,7 @@ class PackageEnvironmentTests(unittest.TestCase):
         """Test adding a package where some dependencies are already present and others are not."""
         # Create an environment
         self.env_manager.create_environment("test_env", "Test environment", create_python_env=False)
-
+        self.env_manager.set_current_environment("test_env")
         # First add only one of the dependencies that complex_dep_pkg needs
         base_pkg_path = self.hatch_dev_path / "base_pkg_1"
         self.assertTrue(base_pkg_path.exists(), f"Base package not found: {base_pkg_path}")
@@ -300,7 +302,7 @@ class PackageEnvironmentTests(unittest.TestCase):
         """Test adding a package where all dependencies are already present."""
         # Create an environment
         self.env_manager.create_environment("test_env", "Test environment", create_python_env=False)
-
+        self.env_manager.set_current_environment("test_env")
         # First add all dependencies that simple_dep_pkg needs
         base_pkg_path = self.hatch_dev_path / "base_pkg_1"
         self.assertTrue(base_pkg_path.exists(), f"Base package not found: {base_pkg_path}")
@@ -345,7 +347,8 @@ class PackageEnvironmentTests(unittest.TestCase):
         """Test adding a package with version constraints where dependencies are satisfied."""
         # Create an environment
         self.env_manager.create_environment("test_env", "Test environment", create_python_env=False)
-        
+        self.env_manager.set_current_environment("test_env")
+
         # Add base_pkg_1 with a specific version
         base_pkg_path = self.hatch_dev_path / "base_pkg_1"
         self.assertTrue(base_pkg_path.exists(), f"Base package not found: {base_pkg_path}")
@@ -382,6 +385,7 @@ class PackageEnvironmentTests(unittest.TestCase):
         """Test adding a package with mixed hatch and python dependencies."""
         # Create an environment
         self.env_manager.create_environment("test_env", "Test environment")
+        self.env_manager.set_current_environment("test_env")
         
         # Add a package that has both hatch and python dependencies
         python_dep_pkg_path = self.hatch_dev_path / "python_dep_pkg"
@@ -423,12 +427,20 @@ class PackageEnvironmentTests(unittest.TestCase):
         # Should have python_dep_pkg (already present) plus any other dependencies of complex_dep_pkg
         self.assertIn("python_dep_pkg", package_names, "Originally installed package missing")
         self.assertIn("complex_dep_pkg", package_names, "New package missing from environment")
-    
+
+        # Python dep package has a dep to request. This should be satisfied in the python environment
+        python_env_info = self.env_manager.python_env_manager.get_environment_info("test_env")
+        packages = python_env_info.get("packages", [])
+        self.assertIsNotNone(packages, "Python environment packages not found")
+        self.assertGreater(len(packages), 0, "No packages found in Python environment")
+        package_names = [pkg["name"] for pkg in packages]
+        self.assertIn("requests", package_names, f"Expected 'requests' package not found in Python environment: {packages}")
+
     @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
     def test_add_package_with_system_dependency(self):
         """Test adding a package with a system dependency."""
         self.env_manager.create_environment("test_env", "Test environment", create_python_env=False)
-
+        self.env_manager.set_current_environment("test_env")
         # Add a package that declares a system dependency (e.g., 'curl')
         system_dep_pkg_path = self.hatch_dev_path / "system_dep_pkg"
         self.assertTrue(system_dep_pkg_path.exists(), f"System dependency package not found: {system_dep_pkg_path}")
@@ -451,7 +463,7 @@ class PackageEnvironmentTests(unittest.TestCase):
     def test_add_package_with_docker_dependency(self):
         """Test adding a package with a docker dependency."""
         self.env_manager.create_environment("test_env", "Test environment", create_python_env=False)
-
+        self.env_manager.set_current_environment("test_env")
         # Add a package that declares a docker dependency (e.g., 'redis:latest')
         docker_dep_pkg_path = self.hatch_dev_path / "docker_dep_pkg"
         self.assertTrue(docker_dep_pkg_path.exists(), f"Docker dependency package not found: {docker_dep_pkg_path}")

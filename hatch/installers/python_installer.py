@@ -8,7 +8,7 @@ import sys
 import subprocess
 import logging
 import os
-import re
+import json
 from pathlib import Path
 from typing import Dict, Any, Optional, Callable, List
 import os
@@ -86,11 +86,12 @@ class PythonInstaller(DependencyInstaller):
             
         return True
 
-    def _run_pip_subprocess(self, cmd: List[str]) -> tuple[int, str, str]:
+    def _run_pip_subprocess(self, cmd: List[str], env_vars: Dict[str, str] = None) -> tuple[int, str, str]:
         """Run a pip subprocess and capture stdout and stderr.
 
         Args:
             cmd (List[str]): The pip command to execute as a list.
+            env_vars (Dict[str, str], optional): Additional environment variables to set for the subprocess.
 
         Returns:
             Tuple[int, str, str]: (returncode, stdout, stderr)
@@ -102,6 +103,9 @@ class PythonInstaller(DependencyInstaller):
 
         env = os.environ.copy()
         env['PYTHONUNBUFFERED'] = '1'
+        env.update(env_vars or {})  # Merge in any additional environment variables
+
+        self.logger.debug(f"Running pip command: {' '.join(cmd)} with env: {json.dumps(env, indent=2)}")
 
         try:
             process = subprocess.Popen(
@@ -165,7 +169,8 @@ class PythonInstaller(DependencyInstaller):
             progress_callback("validate", 0.0, f"Validating Python package {name}")
 
         # Get Python executable from context or use system default
-        python_exec = context.get_config("python_executable", sys.executable)
+        python_env_vars = context.get_config("python_env_vars", {})
+        python_exec = python_env_vars.get("PYTHON", sys.executable)
         
         # Build package specification with version constraint
         # Let pip resolve the actual version based on the constraint
@@ -206,7 +211,7 @@ class PythonInstaller(DependencyInstaller):
             if progress_callback:
                 progress_callback("install", 0.3, f"Installing {package_spec}")
 
-            returncode, stdout, stderr = self._run_pip_subprocess(cmd)
+            returncode, stdout, stderr = self._run_pip_subprocess(cmd, env_vars=python_env_vars)
             self.logger.debug(f"pip command: {' '.join(cmd)}\nreturncode: {returncode}\nstdout: {stdout}\nstderr: {stderr}")
             
             if returncode == 0:
@@ -265,7 +270,9 @@ class PythonInstaller(DependencyInstaller):
             progress_callback("uninstall", 0.0, f"Uninstalling Python package {name}")
 
         # Get Python executable from context
-        python_exec = context.get_config("python_executable", sys.executable)
+        python_env_vars = context.get_config("python_env_vars", {})
+        # Use the configured Python executable or fall back to system default
+        python_exec = python_env_vars.get("PYTHON", sys.executable)
 
         # Build pip uninstall command
         cmd = [str(python_exec), "-m", "pip", "uninstall", "-y", name]
@@ -282,7 +289,7 @@ class PythonInstaller(DependencyInstaller):
             if progress_callback:
                 progress_callback("uninstall", 0.5, f"Removing {name}")
 
-            returncode, stdout, stderr = self._run_pip_subprocess(cmd)
+            returncode, stdout, stderr = self._run_pip_subprocess(cmd, env_vars=python_env_vars)
 
             if returncode == 0:
 

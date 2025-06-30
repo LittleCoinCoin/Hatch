@@ -210,13 +210,15 @@ class HatchEnvironmentManager:
         
         if python_executable:
             # Configure the dependency orchestrator with the Python executable
-            self.dependency_orchestrator.set_python_executable(python_executable)
-            self.logger.info(f"Configured Python executable for {env_name}: {python_executable}")
+            python_env_vars = self.python_env_manager.get_environment_activation_info(env_name)
+            self.dependency_orchestrator.set_python_env_vars(python_env_vars)
+            self.logger.info(f"Configured Python environment variables for {env_name}: {python_env_vars}")
         else:
             # Use system Python as fallback
             system_python = sys.executable
-            self.dependency_orchestrator.set_python_executable(system_python)
-            self.logger.info(f"Using system Python for {env_name}: {system_python}")
+            python_env_vars = {"PYTHON": system_python}
+            self.dependency_orchestrator.set_python_env_vars(python_env_vars)
+            self.logger.info(f"Using system Python for {env_name}: {python_env_vars}")
     
     def get_current_python_executable(self) -> Optional[str]:
         """Get the Python executable for the current environment.

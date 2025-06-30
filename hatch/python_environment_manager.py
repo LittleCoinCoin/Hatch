@@ -129,38 +129,6 @@ class PythonEnvironmentManager:
         self.mamba_executable = self._detect_manager("mamba")
         self.conda_executable = self._detect_manager("conda")
 
-    # def _validate_conda_installation(self) -> bool:
-    #     """Validate that conda/mamba installation is functional.
-        
-    #     Returns:
-    #         bool: True if conda or mamba is available and functional, False otherwise.
-    #     """
-    #     if not (self.conda_executable or self.mamba_executable):
-    #         return False
-        
-    #     # Use mamba if available, otherwise conda
-    #     executable = self.get_preferred_executable()
-        
-    #     try:
-    #         # Test basic functionality
-    #         result = subprocess.run(
-    #             [executable, "info", "--json"], 
-    #             capture_output=True, 
-    #             text=True, 
-    #             timeout=30
-    #         )
-    #         if result.returncode == 0:
-    #             # Try to parse the JSON to ensure it's valid
-    #             json.loads(result.stdout)
-    #             return True
-    #     except (subprocess.TimeoutExpired, subprocess.SubprocessError, json.JSONDecodeError):
-    #         self.logger.error(f"Failed to validate conda/mamba installation: {result.stderr if 'result' in locals() else 'Unknown error'}")
-    #     except Exception as e:
-    #         self.logger.error(f"Unexpected error validating conda/mamba installation: {e}")
-
-    #     self.logger.error("Conda/mamba installation validation failed")
-    #     return False
-
     def is_available(self) -> bool:
         """Check if Python environment management is available.
         
@@ -471,7 +439,7 @@ class PythonEnvironmentManager:
         
         return None
 
-    def activate_environment(self, env_name: str) -> Optional[Dict[str, str]]:
+    def get_environment_activation_info(self, env_name: str) -> Optional[Dict[str, str]]:
         """Get environment variables needed to activate a Python environment.
         
         This method returns the environment variables that should be set

@@ -67,7 +67,7 @@ class DependencyInstallerOrchestrator:
         self.registry_data = registry_data
         
         # Python executable configuration for context
-        self._python_executable: Optional[str] = None
+        self._python_env_vars = Optional[Dict[str, str]]  # Environment variables for Python execution
         
         # These will be set during package resolution
         self.package_service: Optional[PackageService] = None
@@ -76,22 +76,21 @@ class DependencyInstallerOrchestrator:
         self._resolved_package_type: Optional[str] = None
         self._resolved_package_location: Optional[str] = None
 
-    def set_python_executable(self, python_executable: str) -> None:
-        """Set the Python executable to use for Python package installations.
+    def set_python_env_vars(self, python_env_vars: Dict[str, str]) -> None:
+        """Set the environment variables for the Python executable.
         
         Args:
-            python_executable (str): Path to the Python executable.
+            python_env_vars (Dict[str, str]): Environment variables to set for Python execution.
         """
-        self._python_executable = python_executable
-        self.logger.debug(f"Python executable set to: {python_executable}")
+        self._python_env_vars = python_env_vars
 
-    def get_python_executable(self) -> Optional[str]:
-        """Get the configured Python executable.
-        
+    def get_python_env_vars(self) -> Optional[Dict[str, str]]:
+        """Get the configured environment variables for the Python executable.
+
         Returns:
-            str: Path to Python executable, None if not configured.
+            Dict[str, str]: Environment variables for Python execution, None if not configured.
         """
-        return self._python_executable
+        return self._python_env_vars
 
     def install_dependencies(self, 
                            package_path_or_name: str,
@@ -484,12 +483,12 @@ class DependencyInstallerOrchestrator:
                 "main_package_type": self._resolved_package_type
             }
         )
-        
-        # Configure Python executable if available
-        if self._python_executable:
-            context.set_config("python_executable", self._python_executable)
-        
-        try:            
+
+        # Configure Python environment variables if available
+        if self._python_env_vars:
+            context.set_config("python_env_vars", self._python_env_vars)
+
+        try:
             # Install dependencies by type using appropriate installers
             for dep_type, dependencies in install_plan["dependencies_to_install"].items():
                 if not dependencies:
