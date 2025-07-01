@@ -662,26 +662,3 @@ class PythonEnvironmentManager:
             return None
             
         return self._get_conda_env_prefix(env_name)
-        """Check if a Python environment exists.
-        
-        Args:
-            env_name (str): Environment name.
-            
-        Returns:
-            bool: True if environment exists, False otherwise.
-        """
-        return self._conda_env_exists(env_name)
-    
-    def get_environment_path(self, env_name: str) -> Optional[Path]:
-        """Get the file system path for a Python environment.
-        
-        Args:
-            env_name (str): Environment name.
-            
-        Returns:
-            Path: Environment path or None if not found.
-        """
-        if not self.environment_exists(env_name):
-            return None
-            
-        return self._get_conda_env_prefix(env_name)
