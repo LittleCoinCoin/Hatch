@@ -317,15 +317,12 @@ class DockerInstaller(DependencyInstaller):
                 cause=ImportError("docker-py library is required for Docker support")
                 )
             
-        if self._docker_client is None:
-            try:
-                self._docker_client = docker.from_env()
-            except DockerException as e:
-                raise InstallationError(
-                    "Docker daemon not available",
-                    error_code="DOCKER_DAEMON_NOT_AVAILABLE",
-                    cause=e
-                    )
+        if not DOCKER_DAEMON_AVAILABLE:
+            raise InstallationError(
+                "Docker daemon not available",
+                error_code="DOCKER_DAEMON_NOT_AVAILABLE",
+                cause=e
+                )
                 
         return self._docker_client
 
