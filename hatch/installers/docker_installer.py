@@ -12,7 +12,8 @@ from packaging.version import Version, InvalidVersion
 from .installer_base import DependencyInstaller, InstallationContext, InstallationResult, InstallationError
 from .installation_context import InstallationStatus
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("hatch.installers.docker_installer")
+logger.setLevel(logging.INFO)
 
 # Handle docker-py import with graceful fallback
 DOCKER_AVAILABLE = False
@@ -26,14 +27,13 @@ try:
         _docker_client.ping()
         DOCKER_DAEMON_AVAILABLE = True
     except DockerException as e:
-        DOCKER_DAEMON_AVAILABLE = False
-        logger.warning(f"docker-py library is available but Docker daemon is not running or not reachable: {e}")
+        logger.debug(f"docker-py library is available but Docker daemon is not running or not reachable: {e}")
 except ImportError:
     docker = None
     DockerException = Exception
     ImageNotFound = Exception
     APIError = Exception
-    logger.warning("docker-py library not available. Docker installer will be disabled.")
+    logger.debug("docker-py library not available. Docker installer will be disabled.")
 
 
 class DockerInstaller(DependencyInstaller):
