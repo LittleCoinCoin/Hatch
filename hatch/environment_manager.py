@@ -11,10 +11,10 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 
 from hatch_validator.registry.registry_service import RegistryService, RegistryError
-from .registry_retriever import RegistryRetriever
-from .package_loader import HatchPackageLoader
-from .installers.dependency_installation_orchestrator import DependencyInstallerOrchestrator
-from .python_environment_manager import PythonEnvironmentManager, PythonEnvironmentError
+from hatch.registry_retriever import RegistryRetriever
+from hatch.package_loader import HatchPackageLoader
+from hatch.installers.dependency_installation_orchestrator import DependencyInstallerOrchestrator
+from hatch.python_environment_manager import PythonEnvironmentManager, PythonEnvironmentError
 
 class HatchEnvironmentError(Exception):
     """Exception raised for environment-related errors."""
@@ -649,15 +649,23 @@ class HatchEnvironmentManager:
         """
         return self.python_env_manager.is_available()
     
-    def get_python_environment_info(self, env_name: str) -> Optional[Dict[str, Any]]:
+    def get_python_environment_info(self, env_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Get comprehensive Python environment information for an environment.
         
         Args:
-            env_name (str): Environment name.
+            env_name (str, optional): Environment name. Defaults to current environment.
             
         Returns:
             dict: Comprehensive Python environment info, None if no Python environment exists.
+            
+        Raises:
+            HatchEnvironmentError: If no environment name provided and no current environment set.
         """
+        if env_name is None:
+            env_name = self.get_current_environment()
+            if not env_name:
+                raise HatchEnvironmentError("No environment name provided and no current environment set")
+        
         if env_name not in self._environments:
             return None
             
@@ -711,20 +719,28 @@ class HatchEnvironmentManager:
         """
         return self.python_env_manager.list_environments()
     
-    def create_python_environment_only(self, env_name: str, python_version: Optional[str] = None, 
+    def create_python_environment_only(self, env_name: Optional[str] = None, python_version: Optional[str] = None, 
                                       force: bool = False) -> bool:
         """Create only a Python environment without creating a Hatch environment.
         
         Useful for adding Python environments to existing Hatch environments.
         
         Args:
-            env_name (str): Environment name.
-            python_version (str, optional): Python version (e.g., "3.11").
-            force (bool, optional): Whether to recreate if exists.
+            env_name (str, optional): Environment name. Defaults to current environment.
+            python_version (str, optional): Python version (e.g., "3.11"). Defaults to None.
+            force (bool, optional): Whether to recreate if exists. Defaults to False.
             
         Returns:
             bool: True if successful, False otherwise.
+            
+        Raises:
+            HatchEnvironmentError: If no environment name provided and no current environment set.
         """
+        if env_name is None:
+            env_name = self.get_current_environment()
+            if not env_name:
+                raise HatchEnvironmentError("No environment name provided and no current environment set")
+        
         if env_name not in self._environments:
             self.logger.error(f"Hatch environment {env_name} must exist first")
             return False
@@ -775,15 +791,23 @@ class HatchEnvironmentManager:
             self.logger.error(f"Failed to create Python environment: {e}")
             return False
     
-    def remove_python_environment_only(self, env_name: str) -> bool:
+    def remove_python_environment_only(self, env_name: Optional[str] = None) -> bool:
         """Remove only the Python environment, keeping the Hatch environment.
         
         Args:
-            env_name (str): Environment name.
+            env_name (str, optional): Environment name. Defaults to current environment.
             
         Returns:
             bool: True if successful, False otherwise.
+            
+        Raises:
+            HatchEnvironmentError: If no environment name provided and no current environment set.
         """
+        if env_name is None:
+            env_name = self.get_current_environment()
+            if not env_name:
+                raise HatchEnvironmentError("No environment name provided and no current environment set")
+        
         if env_name not in self._environments:
             self.logger.warning(f"Hatch environment {env_name} does not exist")
             return False
@@ -807,15 +831,23 @@ class HatchEnvironmentManager:
             self.logger.error(f"Failed to remove Python environment: {e}")
             return False
     
-    def get_python_environment_diagnostics(self, env_name: str) -> Optional[Dict[str, Any]]:
+    def get_python_environment_diagnostics(self, env_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Get detailed diagnostics for a Python environment.
         
         Args:
-            env_name (str): Environment name.
+            env_name (str, optional): Environment name. Defaults to current environment.
             
         Returns:
             dict: Diagnostics information or None if environment doesn't exist.
+            
+        Raises:
+            HatchEnvironmentError: If no environment name provided and no current environment set.
         """
+        if env_name is None:
+            env_name = self.get_current_environment()
+            if not env_name:
+                raise HatchEnvironmentError("No environment name provided and no current environment set")
+        
         if env_name not in self._environments:
             return None
             
@@ -837,16 +869,24 @@ class HatchEnvironmentManager:
             self.logger.error(f"Failed to get manager diagnostics: {e}")
             return {"error": str(e)}
     
-    def launch_python_shell(self, env_name: str, cmd: Optional[str] = None) -> bool:
+    def launch_python_shell(self, env_name: Optional[str] = None, cmd: Optional[str] = None) -> bool:
         """Launch a Python shell or execute a command in the environment.
         
         Args:
-            env_name (str): Environment name.
-            cmd (str, optional): Command to execute. If None, launches interactive shell.
+            env_name (str, optional): Environment name. Defaults to current environment.
+            cmd (str, optional): Command to execute. If None, launches interactive shell. Defaults to None.
             
         Returns:
             bool: True if successful, False otherwise.
+            
+        Raises:
+            HatchEnvironmentError: If no environment name provided and no current environment set.
         """
+        if env_name is None:
+            env_name = self.get_current_environment()
+            if not env_name:
+                raise HatchEnvironmentError("No environment name provided and no current environment set")
+        
         if env_name not in self._environments:
             self.logger.error(f"Environment {env_name} does not exist")
             return False

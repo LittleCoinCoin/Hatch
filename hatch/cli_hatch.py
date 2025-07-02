@@ -12,8 +12,8 @@ import logging
 import sys
 from pathlib import Path
 
-from .environment_manager import HatchEnvironmentManager
-from .template_generator import create_package_template
+from hatch.environment_manager import HatchEnvironmentManager
+from hatch.template_generator import create_package_template
 
 def main():
     """Main entry point for Hatch CLI.
@@ -81,33 +81,24 @@ def main():
     
     # Initialize Python environment
     python_init_parser = env_python_subparsers.add_parser("init", help="Initialize Python environment")
-    python_init_parser.add_argument("name", help="Environment name")
+    python_init_parser.add_argument("--hatch_env", default=None, help="Hatch environment name in which the Python environment is located (default: current environment)")
     python_init_parser.add_argument("--python-version", help="Python version (e.g., 3.11, 3.12)")
     python_init_parser.add_argument("--force", action="store_true", help="Force recreation if exists")
     
     # Show Python environment info
     python_info_parser = env_python_subparsers.add_parser("info", help="Show Python environment information")
-    python_info_parser.add_argument("name", help="Environment name")
+    python_info_parser.add_argument("--hatch_env", default=None, help="Hatch environment name in which the Python environment is located (default: current environment)")
     python_info_parser.add_argument("--detailed", action="store_true", help="Show detailed diagnostics")
     
     # Remove Python environment
     python_remove_parser = env_python_subparsers.add_parser("remove", help="Remove Python environment")
-    python_remove_parser.add_argument("name", help="Environment name")
+    python_remove_parser.add_argument("--hatch_env", default=None, help="Hatch environment name in which the Python environment is located (default: current environment)")
     python_remove_parser.add_argument("--force", action="store_true", help="Force removal without confirmation")
     
     # Launch Python shell
     python_shell_parser = env_python_subparsers.add_parser("shell", help="Launch Python shell in environment")
-    python_shell_parser.add_argument("name", help="Environment name")
+    python_shell_parser.add_argument("--hatch_env", default=None, help="Hatch environment name in which the Python environment is located (default: current environment)")
     python_shell_parser.add_argument("--cmd", help="Command to run in the shell (optional)")
-    
-    # Legacy Python environment management (backward compatibility)
-    env_python_parser = env_subparsers.add_parser("python-legacy", help="Legacy Python environment commands")
-    env_python_parser.add_argument("action", choices=["add", "remove", "info"], 
-                                   help="Python environment action")
-    env_python_parser.add_argument("name", help="Environment name")
-    env_python_parser.add_argument("--python-version", help="Python version (for add action)")
-    env_python_parser.add_argument("--force", action="store_true", 
-                                   help="Force recreation (for add action)")
     
     # Package management commands
     pkg_subparsers = subparsers.add_parser("package", help="Package management commands").add_subparsers(
@@ -265,12 +256,12 @@ def main():
                 if args.python_command == "init":
                     python_version = getattr(args, 'python_version', None)
                     force = getattr(args, 'force', False)
-                    
-                    if env_manager.create_python_environment_only(args.name, python_version, force):
-                        print(f"Python environment initialized for: {args.name}")
+                
+                    if env_manager.create_python_environment_only(args.hatch_env, python_version, force):
+                        print(f"Python environment initialized for: {args.hatch_env}")
                         
                         # Show Python environment info
-                        python_info = env_manager.get_python_environment_info(args.name)
+                        python_info = env_manager.get_python_environment_info(args.hatch_env)
                         if python_info:
                             print(f"  Python executable: {python_info['python_executable']}")
                             print(f"  Python version: {python_info.get('python_version', 'Unknown')}")
@@ -278,15 +269,18 @@ def main():
                         
                         return 0
                     else:
-                        print(f"Failed to initialize Python environment for: {args.name}")
+                        env_name = args.hatch_env or env_manager.get_current_environment()
+                        print(f"Failed to initialize Python environment for: {env_name}")
                         return 1
                         
                 elif args.python_command == "info":
                     detailed = getattr(args, 'detailed', False)
-                    python_info = env_manager.get_python_environment_info(args.name)
+                
+                    python_info = env_manager.get_python_environment_info(args.hatch_env)
                     
                     if python_info:
-                        print(f"Python environment info for '{args.name}':")
+                        env_name = args.hatch_env or env_manager.get_current_environment()
+                        print(f"Python environment info for '{env_name}':")
                         print(f"  Status: {'Active' if python_info.get('enabled', False) else 'Inactive'}")
                         print(f"  Python executable: {python_info['python_executable']}")
                         print(f"  Python version: {python_info.get('python_version', 'Unknown')}")
@@ -300,7 +294,7 @@ def main():
                         
                         if detailed:
                             print(f"\nDiagnostics:")
-                            diagnostics = env_manager.get_python_environment_diagnostics(args.name)
+                            diagnostics = env_manager.get_python_environment_diagnostics(args.hatch_env)
                             if diagnostics:
                                 for key, value in diagnostics.items():
                                     print(f"  {key}: {value}")
@@ -309,7 +303,8 @@ def main():
                         
                         return 0
                     else:
-                        print(f"No Python environment found for: {args.name}")
+                        env_name = args.hatch_env or env_manager.get_current_environment()
+                        print(f"No Python environment found for: {env_name}")
                         
                         # Show diagnostics for missing environment
                         if detailed:
@@ -325,25 +320,29 @@ def main():
                     
                     if not force:
                         # Ask for confirmation
-                        response = input(f"Remove Python environment for '{args.name}'? [y/N]: ")
+                        env_name = args.hatch_env or env_manager.get_current_environment()
+                        response = input(f"Remove Python environment for '{env_name}'? [y/N]: ")
                         if response.lower() not in ['y', 'yes']:
                             print("Operation cancelled")
                             return 0
                     
-                    if env_manager.remove_python_environment_only(args.name):
-                        print(f"Python environment removed from: {args.name}")
+                    if env_manager.remove_python_environment_only(args.hatch_env):
+                        env_name = args.hatch_env or env_manager.get_current_environment()
+                        print(f"Python environment removed from: {env_name}")
                         return 0
                     else:
-                        print(f"Failed to remove Python environment from: {args.name}")
+                        env_name = args.hatch_env or env_manager.get_current_environment()
+                        print(f"Failed to remove Python environment from: {env_name}")
                         return 1
                         
                 elif args.python_command == "shell":
                     cmd = getattr(args, 'cmd', None)
                     
-                    if env_manager.launch_python_shell(args.name, cmd):
+                    if env_manager.launch_python_shell(args.hatch_env, cmd):
                         return 0
                     else:
-                        print(f"Failed to launch Python shell for: {args.name}")
+                        env_name = args.hatch_env or env_manager.get_current_environment()
+                        print(f"Failed to launch Python shell for: {env_name}")
                         return 1
                 else:
                     print("Unknown Python environment command")
@@ -351,52 +350,6 @@ def main():
             else:
                 print("No Python subcommand specified")
                 return 1
-                
-        elif args.env_command == "python-legacy":
-            # Legacy Python environment commands for backward compatibility
-            if args.action == "add":
-                python_version = getattr(args, 'python_version', None)
-                force = getattr(args, 'force', False)
-                
-                if env_manager.create_python_environment_only(args.name, python_version, force):
-                    print(f"Python environment added to: {args.name}")
-                    
-                    # Show Python environment info
-                    python_exec = env_manager.python_env_manager.get_python_executable(args.name)
-                    if python_exec:
-                        python_version_info = env_manager.python_env_manager.get_python_version(args.name)
-                        print(f"Python executable: {python_exec}")
-                        if python_version_info:
-                            print(f"Python version: {python_version_info}")
-                    
-                    return 0
-                else:
-                    print(f"Failed to add Python environment to: {args.name}")
-                    return 1
-                    
-            elif args.action == "remove":
-                if env_manager.remove_python_environment_only(args.name):
-                    print(f"Python environment removed from: {args.name}")
-                    return 0
-                else:
-                    print(f"Failed to remove Python environment from: {args.name}")
-                    return 1
-                    
-            elif args.action == "info":
-                python_info = env_manager.get_python_environment_info(args.name)
-                if python_info:
-                    print(f"Python environment info for {args.name}:")
-                    print(f"  Path: {python_info['environment_path']}")
-                    print(f"  Python executable: {python_info['python_executable']}")
-                    print(f"  Python version: {python_info.get('python_version', 'Unknown')}")
-                    print(f"  Package count: {python_info.get('package_count', 0)}")
-                    return 0
-                else:
-                    print(f"No Python environment found for: {args.name}")
-                    return 1
-        else:
-            parser.print_help()
-            return 1
     
     elif args.command == "package":
         if args.pkg_command == "add":
