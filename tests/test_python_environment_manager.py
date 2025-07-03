@@ -64,27 +64,36 @@ class TestPythonEnvironmentManager(unittest.TestCase):
         conda_name = self.manager._get_conda_env_name(env_name)
         self.assertEqual(conda_name, "hatch_test_env")
 
-    def test_get_conda_env_prefix(self):
-        """Test conda environment prefix path generation."""
-        env_name = "test_env"
-        prefix = self.manager._get_conda_env_prefix(env_name)
-        expected = self.environments_dir / "test_env" / "python_env"
-        self.assertEqual(prefix, expected)
-
-    def test_get_python_executable_path_windows(self):
+    @patch('subprocess.run')
+    def test_get_python_executable_path_windows(self, mock_run):
         """Test Python executable path on Windows."""
         with patch('platform.system', return_value='Windows'):
             env_name = "test_env"
+            
+            # Mock conda info command to return environment path
+            mock_run.return_value = Mock(
+                returncode=0,
+                stdout='{"envs": ["/conda/envs/hatch_test_env"]}'
+            )
+            
             python_path = self.manager._get_python_executable_path(env_name)
-            expected = self.environments_dir / "test_env" / "python_env" / "python.exe"
+            expected = Path("/conda/envs/hatch_test_env/python.exe")
             self.assertEqual(python_path, expected)
 
-    def test_get_python_executable_path_unix(self):
+    @patch('subprocess.run')
+    def test_get_python_executable_path_unix(self, mock_run):
         """Test Python executable path on Unix/Linux."""
         with patch('platform.system', return_value='Linux'):
             env_name = "test_env"
+            
+            # Mock conda info command to return environment path
+            mock_run.return_value = Mock(
+                returncode=0,
+                stdout='{"envs": ["/conda/envs/hatch_test_env"]}'
+            )
+            
             python_path = self.manager._get_python_executable_path(env_name)
-            expected = self.environments_dir / "test_env" / "python_env" / "bin" / "python"
+            expected = Path("/conda/envs/hatch_test_env/bin/python")
             self.assertEqual(python_path, expected)
 
     def test_is_available_no_conda(self):
@@ -182,38 +191,58 @@ class TestPythonEnvironmentManager(unittest.TestCase):
             create_calls = [call for call in mock_run.call_args_list if "create" in call[0][0]]
             self.assertEqual(len(create_calls), 0)
 
-    def test_conda_env_exists(self):
+    @patch('subprocess.run')
+    def test_conda_env_exists(self, mock_run):
         """Test conda environment existence check."""
         env_name = "test_env"
         
-        # Create the environment directory structure
-        env_prefix = self.manager._get_conda_env_prefix(env_name)
-        env_prefix.mkdir(parents=True, exist_ok=True)
-        
-        # Create Python executable
-        python_executable = self.manager._get_python_executable_path(env_name)
-        python_executable.parent.mkdir(parents=True, exist_ok=True)
-        python_executable.write_text("#!/usr/bin/env python")
+        # Mock conda env list to return the environment
+        mock_run.return_value = Mock(
+            returncode=0,
+            stdout='{"envs": ["/conda/envs/hatch_test_env", "/conda/envs/other_env"]}'
+        )
         
         self.assertTrue(self.manager._conda_env_exists(env_name))
 
-    def test_conda_env_not_exists(self):
+    @patch('subprocess.run')
+    def test_conda_env_not_exists(self, mock_run):
         """Test conda environment existence check when environment doesn't exist."""
         env_name = "nonexistent_env"
+        
+        # Mock conda env list to not return the environment
+        mock_run.return_value = Mock(
+            returncode=0,
+            stdout='{"envs": ["/conda/envs/other_env"]}'
+        )
+        
         self.assertFalse(self.manager._conda_env_exists(env_name))
 
-    def test_get_python_executable_exists(self):
+    @patch('subprocess.run')
+    def test_get_python_executable_exists(self, mock_run):
         """Test getting Python executable when environment exists."""
         env_name = "test_env"
         
-        # Create environment and Python executable
-        python_executable = self.manager._get_python_executable_path(env_name)
-        python_executable.parent.mkdir(parents=True, exist_ok=True)
-        python_executable.write_text("#!/usr/bin/env python")
+        # Mock conda env list to show environment exists
+        def run_side_effect(cmd, *args, **kwargs):
+            if "env" in cmd and "list" in cmd:
+                return Mock(returncode=0, stdout='{"envs": ["/conda/envs/hatch_test_env"]}')
+            elif "info" in cmd and "--envs" in cmd:
+                return Mock(returncode=0, stdout='{"envs": ["/conda/envs/hatch_test_env"]}')
+            else:
+                return Mock(returncode=0, stdout='{}')
         
-        with patch.object(self.manager, '_conda_env_exists', return_value=True):
+        mock_run.side_effect = run_side_effect
+        
+        # Mock that the file exists
+        with patch('pathlib.Path.exists', return_value=True):
             result = self.manager.get_python_executable(env_name)
-            self.assertEqual(result, str(python_executable))
+            import platform
+            from pathlib import Path as _Path
+            if platform.system() == "Windows":
+                expected = str(_Path("\\conda\\envs\\hatch_test_env\\python.exe"))
+            else:
+                expected = str(_Path("/conda/envs/hatch_test_env/bin/python"))
+            self.assertEqual(result, expected)
 
     def test_get_python_executable_not_exists(self):
         """Test getting Python executable when environment doesn't exist."""
@@ -425,7 +454,7 @@ class TestPythonEnvironmentManagerIntegration(unittest.TestCase):
 
     def test_list_environments_real(self):
         """Test listing environments with real conda environments."""
-        test_envs = ["test_env_1", "test_env_2"]
+        test_envs = ["hatch_test_env_1", "hatch_test_env_2"]
         
         # Clean up any existing test environments
         for env_name in test_envs:
@@ -640,7 +669,7 @@ class TestPythonEnvironmentManagerEnhancedFeatures(unittest.TestCase):
         
         # Verify basic structure
         self.assertEqual(diagnostics["environment_name"], env_name)
-        self.assertEqual(diagnostics["conda_env_name"], f"hatch-{env_name}")
+        self.assertEqual(diagnostics["conda_env_name"], f"hatch_{env_name}")
         self.assertIsInstance(diagnostics["exists"], bool)
         self.assertIsInstance(diagnostics["conda_available"], bool)
 
