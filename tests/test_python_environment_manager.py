@@ -28,6 +28,65 @@ class TestPythonEnvironmentManager(unittest.TestCase):
         """Clean up test environment."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
+    @patch('hatch.python_environment_manager.PythonEnvironmentManager._conda_env_exists', return_value=True)
+    @patch('hatch.python_environment_manager.PythonEnvironmentManager._get_conda_env_name', return_value='hatch_test_env')
+    @patch('hatch.python_environment_manager.PythonEnvironmentManager._get_python_executable_path', return_value='C:/fake/env/Scripts/python.exe')
+    @patch('hatch.python_environment_manager.PythonEnvironmentManager.get_environment_path', return_value=Path('C:/fake/env'))
+    @patch('platform.system', return_value='Windows')
+    def test_get_environment_activation_info_windows(self, mock_platform, mock_get_env_path, mock_get_python_exec_path, mock_get_conda_env_name, mock_conda_env_exists):
+        """Test get_environment_activation_info returns correct env vars on Windows."""
+        env_name = 'test_env'
+        manager = PythonEnvironmentManager(environments_dir=Path('C:/fake/envs'))
+        env_vars = manager.get_environment_activation_info(env_name)
+        self.assertIsInstance(env_vars, dict)
+        self.assertEqual(env_vars['CONDA_DEFAULT_ENV'], 'hatch_test_env')
+        self.assertEqual(env_vars['CONDA_PREFIX'], str(Path('C:/fake/env')))
+        self.assertIn('PATH', env_vars)
+        # On Windows, the path separator is ';' and paths are backslash
+        # Split PATH and check each expected directory is present as a component
+        path_dirs = env_vars['PATH'].split(';')
+        self.assertIn('C:\\fake\\env', path_dirs)
+        self.assertIn('C:\\fake\\env\\Scripts', path_dirs)
+        self.assertIn('C:\\fake\\env\\Library\\bin', path_dirs)
+        self.assertEqual(env_vars['PYTHON'], 'C:/fake/env/Scripts/python.exe')
+
+    @patch('hatch.python_environment_manager.PythonEnvironmentManager._conda_env_exists', return_value=True)
+    @patch('hatch.python_environment_manager.PythonEnvironmentManager._get_conda_env_name', return_value='hatch_test_env')
+    @patch('hatch.python_environment_manager.PythonEnvironmentManager._get_python_executable_path', return_value='/fake/env/bin/python')
+    @patch('hatch.python_environment_manager.PythonEnvironmentManager.get_environment_path', return_value=Path('/fake/env'))
+    @patch('platform.system', return_value='Linux')
+    def test_get_environment_activation_info_unix(self, mock_platform, mock_get_env_path, mock_get_python_exec_path, mock_get_conda_env_name, mock_conda_env_exists):
+        """Test get_environment_activation_info returns correct env vars on Unix."""
+        env_name = 'test_env'
+        manager = PythonEnvironmentManager(environments_dir=Path('/fake/envs'))
+        env_vars = manager.get_environment_activation_info(env_name)
+        self.assertIsInstance(env_vars, dict)
+        self.assertEqual(env_vars['CONDA_DEFAULT_ENV'], 'hatch_test_env')
+        self.assertEqual(env_vars['CONDA_PREFIX'], str(Path('/fake/env')))
+        self.assertIn('PATH', env_vars)
+        # On Unix, the path separator is ':' and paths are forward slash, but Path() may normalize to backslash on Windows
+        # Accept both possible representations for cross-platform test running
+        path_dirs = env_vars['PATH']
+        self.assertTrue('/fake/env/bin' in path_dirs or '\\fake\\env\\bin' in path_dirs, f"Expected '/fake/env/bin' or '\\fake\\env\\bin' to be in PATH: {env_vars['PATH']}")
+        self.assertEqual(env_vars['PYTHON'], '/fake/env/bin/python')
+
+    @patch('hatch.python_environment_manager.PythonEnvironmentManager._conda_env_exists', return_value=False)
+    def test_get_environment_activation_info_env_not_exists(self, mock_conda_env_exists):
+        """Test get_environment_activation_info returns None if env does not exist."""
+        env_name = 'nonexistent_env'
+        manager = PythonEnvironmentManager(environments_dir=Path('/fake/envs'))
+        env_vars = manager.get_environment_activation_info(env_name)
+        self.assertIsNone(env_vars)
+
+    @patch('hatch.python_environment_manager.PythonEnvironmentManager._conda_env_exists', return_value=True)
+    @patch('hatch.python_environment_manager.PythonEnvironmentManager._get_python_executable_path', return_value=None)
+    def test_get_environment_activation_info_no_python(self, mock_get_python_exec_path, mock_conda_env_exists):
+        """Test get_environment_activation_info returns None if python executable not found."""
+        env_name = 'test_env'
+        manager = PythonEnvironmentManager(environments_dir=Path('/fake/envs'))
+        env_vars = manager.get_environment_activation_info(env_name)
+        self.assertIsNone(env_vars)
+
     def test_init(self):
         """Test PythonEnvironmentManager initialization."""
         self.assertEqual(self.manager.environments_dir, self.environments_dir)

@@ -507,7 +507,7 @@ class PythonEnvironmentManager:
         env_vars["CONDA_DEFAULT_ENV"] = env_name_conda
         
         # Get the actual environment path from conda
-        env_path = self._get_conda_env_path(env_name)
+        env_path = self.get_environment_path(env_name)
         if env_path:
             env_vars["CONDA_PREFIX"] = str(env_path)
             
