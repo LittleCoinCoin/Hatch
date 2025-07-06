@@ -92,6 +92,63 @@ class DependencyInstallerOrchestrator:
         """
         return self._python_env_vars
 
+    def install_single_dep(self, dep: Dict[str, Any], context: InstallationContext) -> Dict[str, Any]:
+        """Install a single dependency into the specified environment context.
+
+        This method installs a single dependency using the appropriate installer from the registry.
+        It extracts the core installation logic from _execute_install_plan for reuse in other contexts.
+        This method operates with auto_approve=True and does not require user consent.
+
+        Args:
+            dep (Dict[str, Any]): Dependency dictionary following the schema for the dependency type.
+                                 For Python dependencies, should include: name, version_constraint, package_manager.
+                                 Example: {"name": "numpy", "version_constraint": "*", "package_manager": "pip", "type": "python"}
+            context (InstallationContext): Installation context with environment path and configuration.
+
+        Returns:
+            Dict[str, Any]: Installed package information containing:
+                - name: Package name
+                - version: Installed version  
+                - type: Dependency type
+                - source: Package source URI
+
+        Raises:
+            DependencyInstallationError: If installation fails or dependency type is not supported.
+        """
+        # Ensure dependency has type information
+        dep_type = dep.get("type")
+        if not dep_type:
+            raise DependencyInstallationError(f"Dependency missing 'type' field: {dep}")
+
+        # Check if installer is registered for this dependency type
+        if not installer_registry.is_registered(dep_type):
+            raise DependencyInstallationError(f"No installer registered for dependency type: {dep_type}")
+
+        installer = installer_registry.get_installer(dep_type)
+
+        try:
+            self.logger.info(f"Installing {dep_type} dependency: {dep['name']}")
+            result = installer.install(dep, context)
+            if result.status == InstallationStatus.COMPLETED:
+                installed_package = {
+                    "name": dep["name"],
+                    "version": dep.get("resolved_version", dep.get("version")),
+                    "type": dep_type,
+                    "source": dep.get("uri", "unknown")
+                }
+                self.logger.info(f"Successfully installed {dep_type} dependency: {dep['name']}")
+                return installed_package
+            else:
+                raise DependencyInstallationError(f"Failed to install {dep['name']}: {result.error_message}")
+
+        except InstallationError as e:
+            self.logger.error(f"Installation error for {dep_type} dependency {dep['name']}: {e.error_code}\n{e.message}")
+            raise DependencyInstallationError(f"Installation error for {dep['name']}: {e}") from e
+
+        except Exception as e:
+            self.logger.error(f"Error installing {dep_type} dependency {dep['name']}: {e}")
+            raise DependencyInstallationError(f"Error installing {dep['name']}: {e}") from e
+
     def install_dependencies(self, 
                            package_path_or_name: str,
                            env_path: Path,
@@ -501,26 +558,9 @@ class DependencyInstallerOrchestrator:
                 installer = installer_registry.get_installer(dep_type)
                 
                 for dep in dependencies:
-                    try:
-                        result = installer.install(dep, context)
-                        if result.status == InstallationStatus.COMPLETED:
-                            installed_packages.append({
-                                "name": dep["name"],
-                                "version": dep.get("resolved_version", dep.get("version")),
-                                "type": dep_type,
-                                "source": dep.get("uri", "unknown")
-                            })
-                            self.logger.info(f"Successfully installed {dep_type} dependency: {dep['name']}")
-                        else:
-                            raise DependencyInstallationError(f"Failed to install {dep['name']}: {result.error_message}")
-                    
-                    except InstallationError as e:
-                        self.logger.error(f"Installation error for {dep_type} dependency {dep['name']}: {e.error_code}\n{e.message}")
-                        raise DependencyInstallationError(f"Installation error for {dep['name']}: {e}") from e
-                    
-                    except Exception as e:
-                        self.logger.error(f"Error installing {dep_type} dependency {dep['name']}: {e}")
-                        raise DependencyInstallationError(f"Error installing {dep['name']}: {e}") from e
+                    # Use the extracted install_single_dep method
+                    installed_package = self.install_single_dep(dep, context)
+                    installed_packages.append(installed_package)
                     
             # Install main package last
             main_pkg_info = self._install_main_package(context)

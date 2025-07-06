@@ -59,6 +59,10 @@ def main():
     env_create_parser.add_argument("--python-version", help="Python version for the environment (e.g., 3.11, 3.12)")
     env_create_parser.add_argument("--no-python", action="store_true", 
                                    help="Don't create a Python environment using conda/mamba")
+    env_create_parser.add_argument("--no-hatch-mcp-server", action="store_true",
+                                   help="Don't install hatch_mcp_server in the new environment")
+    env_create_parser.add_argument("--hatch_mcp_server_tag", 
+                                   help="Git tag/branch reference for hatch_mcp_server installation (e.g., 'dev', 'v0.1.0')")
     
     # Remove environment command
     env_remove_parser = env_subparsers.add_parser("remove", help="Remove an environment")
@@ -167,7 +171,9 @@ def main():
             
             if env_manager.create_environment(args.name, args.description, 
                                             python_version=python_version,
-                                            create_python_env=create_python_env):
+                                            create_python_env=create_python_env,
+                                            no_hatch_mcp_server=args.no_hatch_mcp_server,
+                                            hatch_mcp_server_tag=args.hatch_mcp_server_tag):
                 print(f"Environment created: {args.name}")
                 
                 # Show Python environment status
