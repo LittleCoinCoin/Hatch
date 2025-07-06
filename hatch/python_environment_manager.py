@@ -25,7 +25,7 @@ class PythonEnvironmentManager:
     """Manages Python environments using conda/mamba for cross-platform isolation.
     
     This class handles:
-    1. Creating and managing conda/mamba environments locally under Hatch environment directories
+    1. Creating and managing named conda/mamba environments
     2. Python version management and executable path resolution
     3. Cross-platform conda/mamba detection and validation
     4. Environment lifecycle operations (create, remove, info)
@@ -158,23 +158,11 @@ class PythonEnvironmentManager:
         """
         return f"hatch_{env_name}"
 
-    def _get_conda_env_prefix(self, env_name: str) -> Path:
-        """Get the local conda environment prefix path.
-        
-        Args:
-            env_name (str): Hatch environment name.
-            
-        Returns:
-            Path: Local path where the conda environment should be installed.
-        """
-        return self.environments_dir / env_name / "python_env"
-
     def create_python_environment(self, env_name: str, python_version: Optional[str] = None, 
                                  force: bool = False) -> bool:
         """Create a Python environment using conda/mamba.
         
-        Creates a conda environment locally under the Hatch environment directory
-        with the specified Python version.
+        Creates a named conda environment with the specified Python version.
         
         Args:
             env_name (str): Hatch environment name.
@@ -193,20 +181,21 @@ class PythonEnvironmentManager:
             raise PythonEnvironmentError("Neither conda nor mamba is available for Python environment management")
         
         executable = self.get_preferred_executable()
-        env_prefix = self._get_conda_env_prefix(env_name)
+        env_name_conda = self._get_conda_env_name(env_name)
+        conda_env_exists = self._conda_env_exists(env_name)
         
         # Check if environment already exists
-        if self._conda_env_exists(env_name) and not force:
+        if conda_env_exists and not force:
             self.logger.warning(f"Python environment already exists for {env_name}")
             return True
         
         # Remove existing environment if force is True
-        if force and self._conda_env_exists(env_name):
+        if force and conda_env_exists:
             self.logger.info(f"Removing existing Python environment for {env_name}")
             self.remove_python_environment(env_name)
         
         # Build conda create command
-        cmd = [executable, "create", "--yes", "--prefix", str(env_prefix)]
+        cmd = [executable, "create", "--yes", "--name", env_name_conda]
         
         if python_version:
             cmd.extend(["python=" + python_version])
@@ -214,7 +203,7 @@ class PythonEnvironmentManager:
             cmd.append("python")
         
         try:
-            self.logger.debug(f"Creating Python environment for {env_name} at {env_prefix}")
+            self.logger.debug(f"Creating Python environment for {env_name} with name {env_name_conda}")
             if python_version:
                 self.logger.debug(f"Using Python version: {python_version}")
 
@@ -248,27 +237,72 @@ class PythonEnvironmentManager:
         Returns:
             bool: True if the conda environment exists, False otherwise.
         """
-        env_prefix = self._get_conda_env_prefix(env_name)
-        python_executable = self._get_python_executable_path(env_name)
+        if not self.is_available():
+            return False
         
-        # Check if the environment directory and Python executable exist
-        return env_prefix.exists() and python_executable.exists()
+        executable = self.get_preferred_executable()
+        env_name_conda = self._get_conda_env_name(env_name)
+        
+        try:
+            # Use conda env list to check if the environment exists
+            result = subprocess.run(
+                [executable, "env", "list", "--json"],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            if result.returncode == 0:
+                import json
+                envs_data = json.loads(result.stdout)
+                env_names = [Path(env).name for env in envs_data.get("envs", [])]
+                return env_name_conda in env_names
+            else:
+                return False
+                
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, json.JSONDecodeError):
+            return False
 
-    def _get_python_executable_path(self, env_name: str) -> Path:
+    def _get_python_executable_path(self, env_name: str) -> Optional[Path]:
         """Get the Python executable path for a given environment.
         
         Args:
             env_name (str): Hatch environment name.
             
         Returns:
-            Path: Path to the Python executable in the environment.
+            Path: Path to the Python executable in the environment, None if not found.
         """
-        env_prefix = self._get_conda_env_prefix(env_name)
+        if not self.is_available():
+            return None
         
-        if platform.system() == "Windows":
-            return env_prefix / "python.exe"
-        else:
-            return env_prefix / "bin" / "python"
+        executable = self.get_preferred_executable()
+        env_name_conda = self._get_conda_env_name(env_name)
+        
+        try:
+            # Get environment info to find the prefix path
+            result = subprocess.run(
+                [executable, "info", "--envs", "--json"],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            if result.returncode == 0:
+                envs_data = json.loads(result.stdout)
+                envs = envs_data.get("envs", [])
+                
+                # Find the environment path
+                for env_path in envs:
+                    if Path(env_path).name == env_name_conda:
+                        if platform.system() == "Windows":
+                            return Path(env_path) / "python.exe"
+                        else:
+                            return Path(env_path) / "bin" / "python"
+                            
+            return None
+                
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, json.JSONDecodeError):
+            return None
 
     def get_python_executable(self, env_name: str) -> Optional[str]:
         """Get the Python executable path for an environment if it exists.
@@ -283,7 +317,7 @@ class PythonEnvironmentManager:
             return None
         
         python_path = self._get_python_executable_path(env_name)
-        return str(python_path) if python_path.exists() else None
+        return str(python_path) if python_path and python_path.exists() else None
 
     def remove_python_environment(self, env_name: str) -> bool:
         """Remove a Python environment.
@@ -305,26 +339,19 @@ class PythonEnvironmentManager:
             return True
         
         executable = self.get_preferred_executable()
-        env_prefix = self._get_conda_env_prefix(env_name)
+        env_name_conda = self._get_conda_env_name(env_name)
         
         try:
             self.logger.info(f"Removing Python environment for {env_name}")
             
-            # Use conda/mamba remove with --prefix
+            # Use conda/mamba remove with --name
             # Show output in terminal by not capturing output
             result = subprocess.run(
-                [executable, "env", "remove", "--yes", "--prefix", str(env_prefix)],
+                [executable, "env", "remove", "--yes", "--name", env_name_conda],
                 timeout=120  # 2 minutes timeout
             )
             
             if result.returncode == 0:              
-                # Clean up any remaining directory structure
-                if env_prefix.exists():
-                    try:
-                        shutil.rmtree(env_prefix)
-                    except OSError as e:
-                        self.logger.warning(f"Could not fully clean up environment directory: {e}")
-                
                 return True
             else:
                 error_msg = f"Failed to remove Python environment: (see terminal output)"
@@ -354,14 +381,14 @@ class PythonEnvironmentManager:
             return None
         
         executable = self.get_preferred_executable()
-        env_prefix = self._get_conda_env_prefix(env_name)
+        env_name_conda = self._get_conda_env_name(env_name)
         python_executable = self._get_python_executable_path(env_name)
         
         info = {
             "environment_name": env_name,
-            "conda_env_name": self._get_conda_env_name(env_name),
-            "environment_path": str(env_prefix),
-            "python_executable": str(python_executable),
+            "conda_env_name": env_name_conda,
+            "environment_path": None,  # Not applicable for named environments
+            "python_executable": str(python_executable) if python_executable else None,
             "python_version": self.get_python_version(env_name),
             "exists": True,
             "platform": platform.system()
@@ -371,7 +398,7 @@ class PythonEnvironmentManager:
         if self.is_available():
             try:
                 result = subprocess.run(
-                    [executable, "list", "--prefix", str(env_prefix), "--json"],
+                    [executable, "list", "--name", env_name_conda, "--json"],
                     capture_output=True,
                     text=True,
                     timeout=30
@@ -394,14 +421,29 @@ class PythonEnvironmentManager:
         """
         environments = []
         
-        if not self.environments_dir.exists():
+        if not self.is_available():
             return environments
         
-        for env_dir in self.environments_dir.iterdir():
-            if env_dir.is_dir():
-                env_name = env_dir.name
-                if self._conda_env_exists(env_name):
-                    environments.append(env_name)
+        executable = self.get_preferred_executable()
+        
+        try:
+            result = subprocess.run(
+                [executable, "env", "list", "--json"],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            if result.returncode == 0:
+                envs_data = json.loads(result.stdout)
+                env_paths = envs_data.get("envs", [])
+                
+                # Filter for hatch environments
+                for env_path in env_paths:
+                    environments.append(Path(env_path).name)
+                        
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, json.JSONDecodeError):
+            pass
         
         return environments
 
@@ -441,7 +483,8 @@ class PythonEnvironmentManager:
         
         This method returns the environment variables that should be set
         to properly activate the Python environment, but doesn't actually
-        modify the current process environment.
+        modify the current process environment. This can typically be used
+        when running subprocesses or in shell scripts to set up the environment.
         
         Args:
             env_name (str): Hatch environment name.
@@ -452,28 +495,35 @@ class PythonEnvironmentManager:
         if not self._conda_env_exists(env_name):
             return None
         
-        env_prefix = self._get_conda_env_prefix(env_name)
+        env_name_conda = self._get_conda_env_name(env_name)
         python_executable = self._get_python_executable_path(env_name)
+        
+        if not python_executable:
+            return None
         
         env_vars = {}
         
-        # Set CONDA_PREFIX and CONDA_DEFAULT_ENV
-        env_vars["CONDA_PREFIX"] = str(env_prefix)
-        env_vars["CONDA_DEFAULT_ENV"] = str(env_prefix)
+        # Set CONDA_DEFAULT_ENV to the environment name
+        env_vars["CONDA_DEFAULT_ENV"] = env_name_conda
         
-        # Update PATH to include environment's bin/Scripts directory
-        if platform.system() == "Windows":
-            scripts_dir = env_prefix / "Scripts"
-            library_bin = env_prefix / "Library" / "bin"
-            bin_paths = [str(env_prefix), str(scripts_dir), str(library_bin)]
-        else:
-            bin_dir = env_prefix / "bin"
-            bin_paths = [str(bin_dir)]
-        
-        # Get current PATH and prepend environment paths
-        current_path = os.environ.get("PATH", "")
-        new_path = os.pathsep.join(bin_paths + [current_path])
-        env_vars["PATH"] = new_path
+        # Get the actual environment path from conda
+        env_path = self.get_environment_path(env_name)
+        if env_path:
+            env_vars["CONDA_PREFIX"] = str(env_path)
+            
+            # Update PATH to include environment's bin/Scripts directory
+            if platform.system() == "Windows":
+                scripts_dir = env_path / "Scripts"
+                library_bin = env_path / "Library" / "bin"
+                bin_paths = [str(env_path), str(scripts_dir), str(library_bin)]
+            else:
+                bin_dir = env_path / "bin"
+                bin_paths = [str(bin_dir)]
+            
+            # Get current PATH and prepend environment paths
+            current_path = os.environ.get("PATH", "")
+            new_path = os.pathsep.join(bin_paths + [current_path])
+            env_vars["PATH"] = new_path
         
         # Set PYTHON environment variable
         env_vars["PYTHON"] = str(python_executable)
@@ -506,7 +556,7 @@ class PythonEnvironmentManager:
         """
         diagnostics = {
             "environment_name": env_name,
-            "conda_env_name": f"hatch-{env_name}",
+            "conda_env_name": self._get_conda_env_name(env_name),
             "exists": False,
             "conda_available": self.is_available(),
             "manager_executable": self.mamba_executable or self.conda_executable,
@@ -620,7 +670,8 @@ class PythonEnvironmentManager:
                 
                 # On Windows, we need to activate the conda environment first
                 if platform.system() == "Windows":
-                    activate_cmd = f"{self.get_preferred_executable()} activate {self._get_conda_env_prefix(env_name)} && python"
+                    env_name_conda = self._get_conda_env_name(env_name)
+                    activate_cmd = f"{self.get_preferred_executable()} activate {env_name_conda} && python"
                     result = subprocess.run(
                         ["cmd", "/c", activate_cmd],
                         cwd=os.getcwd()
@@ -650,15 +701,39 @@ class PythonEnvironmentManager:
         return self._conda_env_exists(env_name)
     
     def get_environment_path(self, env_name: str) -> Optional[Path]:
-        """Get the file system path for a Python environment.
+        """Get the actual filesystem path for a conda environment.
         
         Args:
-            env_name (str): Environment name.
+            env_name (str): Hatch environment name.
             
         Returns:
-            Path: Environment path or None if not found.
+            Path: Path to the conda environment directory, None if not found.
         """
-        if not self.environment_exists(env_name):
+        if not self.is_available():
             return None
+        
+        executable = self.get_preferred_executable()
+        env_name_conda = self._get_conda_env_name(env_name)
+        
+        try:
+            result = subprocess.run(
+                [executable, "info", "--envs", "--json"],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
             
-        return self._get_conda_env_prefix(env_name)
+            if result.returncode == 0:
+                import json
+                envs_data = json.loads(result.stdout)
+                envs = envs_data.get("envs", [])
+                
+                # Find the environment path
+                for env_path in envs:
+                    if Path(env_path).name == env_name_conda:
+                        return Path(env_path)
+                        
+            return None
+                
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, json.JSONDecodeError):
+            return None
