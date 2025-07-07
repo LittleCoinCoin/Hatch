@@ -60,9 +60,9 @@ def main():
     env_create_parser.add_argument("--no-python", action="store_true", 
                                    help="Don't create a Python environment using conda/mamba")
     env_create_parser.add_argument("--no-hatch-mcp-server", action="store_true",
-                                   help="Don't install hatch_mcp_server in the new environment")
+                                   help="Don't install hatch_mcp_server wrapper in the new environment")
     env_create_parser.add_argument("--hatch_mcp_server_tag", 
-                                   help="Git tag/branch reference for hatch_mcp_server installation (e.g., 'dev', 'v0.1.0')")
+                                   help="Git tag/branch reference for hatch_mcp_server wrapper installation (e.g., 'dev', 'v0.1.0')")
     
     # Remove environment command
     env_remove_parser = env_subparsers.add_parser("remove", help="Remove an environment")
@@ -77,7 +77,7 @@ def main():
     
     # Show current environment command
     env_subparsers.add_parser("current", help="Show the current environment")
-    
+
     # Python environment management commands - advanced subcommands
     env_python_subparsers = env_subparsers.add_parser("python", help="Manage Python environments").add_subparsers(
         dest="python_command", help="Python environment command to execute"
@@ -88,11 +88,21 @@ def main():
     python_init_parser.add_argument("--hatch_env", default=None, help="Hatch environment name in which the Python environment is located (default: current environment)")
     python_init_parser.add_argument("--python-version", help="Python version (e.g., 3.11, 3.12)")
     python_init_parser.add_argument("--force", action="store_true", help="Force recreation if exists")
+    python_init_parser.add_argument("--no-hatch-mcp-server", action="store_true",
+                                   help="Don't install hatch_mcp_server wrapper in the Python environment")
+    python_init_parser.add_argument("--hatch_mcp_server_tag", 
+                                   help="Git tag/branch reference for hatch_mcp_server wrapper installation (e.g., 'dev', 'v0.1.0')")
     
     # Show Python environment info
     python_info_parser = env_python_subparsers.add_parser("info", help="Show Python environment information")
     python_info_parser.add_argument("--hatch_env", default=None, help="Hatch environment name in which the Python environment is located (default: current environment)")
     python_info_parser.add_argument("--detailed", action="store_true", help="Show detailed diagnostics")
+    
+    # Hatch MCP server wrapper management commands
+    hatch_mcp_parser = env_python_subparsers.add_parser("add-hatch-mcp", help="Add hatch_mcp_server wrapper to the environment")
+    ## Install MCP server command
+    hatch_mcp_parser.add_argument("--hatch_env", default=None, help="Hatch environment name. It must possess a valid Python environment. (default: current environment)")
+    hatch_mcp_parser.add_argument("--tag", default=None, help="Git tag/branch reference for wrapper installation (e.g., 'dev', 'v0.1.0')")
     
     # Remove Python environment
     python_remove_parser = env_python_subparsers.add_parser("remove", help="Remove Python environment")
@@ -124,7 +134,7 @@ def main():
     
     # List packages command
     pkg_list_parser = pkg_subparsers.add_parser("list", help="List packages in an environment")
-    pkg_list_parser.add_argument("--env", "-e", help="Environment name (default: current environment)")    # Parse arguments
+    pkg_list_parser.add_argument("--env", "-e", help="Environment name (default: current environment)")
 
     # General arguments for the environment manager
     parser.add_argument("--envs-dir", default=Path.home() / ".hatch" / "envs", help="Directory to store environments")
@@ -258,104 +268,121 @@ def main():
             
         elif args.env_command == "python":
             # Advanced Python environment management
-            if hasattr(args, 'python_command'):
-                if args.python_command == "init":
-                    python_version = getattr(args, 'python_version', None)
-                    force = getattr(args, 'force', False)
-                
-                    if env_manager.create_python_environment_only(args.hatch_env, python_version, force):
-                        print(f"Python environment initialized for: {args.hatch_env}")
-                        
-                        # Show Python environment info
-                        python_info = env_manager.get_python_environment_info(args.hatch_env)
-                        if python_info:
-                            print(f"  Python executable: {python_info['python_executable']}")
-                            print(f"  Python version: {python_info.get('python_version', 'Unknown')}")
-                            print(f"  Conda environment: {python_info.get('conda_env_name', 'N/A')}")
-                        
-                        return 0
-                    else:
-                        env_name = args.hatch_env or env_manager.get_current_environment()
-                        print(f"Failed to initialize Python environment for: {env_name}")
-                        return 1
-                        
-                elif args.python_command == "info":
-                    detailed = getattr(args, 'detailed', False)
-                
-                    python_info = env_manager.get_python_environment_info(args.hatch_env)
+            if args.python_command == "init":
+                python_version = getattr(args, 'python_version', None)
+                force = getattr(args, 'force', False)
+                no_hatch_mcp_server = getattr(args, 'no_hatch_mcp_server', False)
+                hatch_mcp_server_tag = getattr(args, 'hatch_mcp_server_tag', None)
+            
+                if env_manager.create_python_environment_only(
+                    args.hatch_env, 
+                    python_version, 
+                    force,
+                    no_hatch_mcp_server=no_hatch_mcp_server,
+                    hatch_mcp_server_tag=hatch_mcp_server_tag
+                ):
+                    print(f"Python environment initialized for: {args.hatch_env}")
                     
+                    # Show Python environment info
+                    python_info = env_manager.get_python_environment_info(args.hatch_env)
                     if python_info:
-                        env_name = args.hatch_env or env_manager.get_current_environment()
-                        print(f"Python environment info for '{env_name}':")
-                        print(f"  Status: {'Active' if python_info.get('enabled', False) else 'Inactive'}")
                         print(f"  Python executable: {python_info['python_executable']}")
                         print(f"  Python version: {python_info.get('python_version', 'Unknown')}")
                         print(f"  Conda environment: {python_info.get('conda_env_name', 'N/A')}")
-                        print(f"  Environment path: {python_info['environment_path']}")
-                        print(f"  Created: {python_info.get('created_at', 'Unknown')}")
-                        print(f"  Package count: {python_info.get('package_count', 0)}")
-                        print(f"  Packages:")
-                        for pkg in python_info.get('packages', []):
-                            print(f"    - {pkg['name']} ({pkg['version']})")
-                        
-                        if detailed:
-                            print(f"\nDiagnostics:")
-                            diagnostics = env_manager.get_python_environment_diagnostics(args.hatch_env)
-                            if diagnostics:
-                                for key, value in diagnostics.items():
-                                    print(f"  {key}: {value}")
-                            else:
-                                print("  No diagnostics available")
-                        
-                        return 0
-                    else:
-                        env_name = args.hatch_env or env_manager.get_current_environment()
-                        print(f"No Python environment found for: {env_name}")
-                        
-                        # Show diagnostics for missing environment
-                        if detailed:
-                            print("\nDiagnostics:")
-                            general_diagnostics = env_manager.get_python_manager_diagnostics()
-                            for key, value in general_diagnostics.items():
-                                print(f"  {key}: {value}")
-                        
-                        return 1
-                        
-                elif args.python_command == "remove":
-                    force = getattr(args, 'force', False)
                     
-                    if not force:
-                        # Ask for confirmation
-                        env_name = args.hatch_env or env_manager.get_current_environment()
-                        response = input(f"Remove Python environment for '{env_name}'? [y/N]: ")
-                        if response.lower() not in ['y', 'yes']:
-                            print("Operation cancelled")
-                            return 0
-                    
-                    if env_manager.remove_python_environment_only(args.hatch_env):
-                        env_name = args.hatch_env or env_manager.get_current_environment()
-                        print(f"Python environment removed from: {env_name}")
-                        return 0
-                    else:
-                        env_name = args.hatch_env or env_manager.get_current_environment()
-                        print(f"Failed to remove Python environment from: {env_name}")
-                        return 1
-                        
-                elif args.python_command == "shell":
-                    cmd = getattr(args, 'cmd', None)
-                    
-                    if env_manager.launch_python_shell(args.hatch_env, cmd):
-                        return 0
-                    else:
-                        env_name = args.hatch_env or env_manager.get_current_environment()
-                        print(f"Failed to launch Python shell for: {env_name}")
-                        return 1
+                    return 0
                 else:
-                    print("Unknown Python environment command")
+                    env_name = args.hatch_env or env_manager.get_current_environment()
+                    print(f"Failed to initialize Python environment for: {env_name}")
                     return 1
+                    
+            elif args.python_command == "info":
+                detailed = getattr(args, 'detailed', False)
+            
+                python_info = env_manager.get_python_environment_info(args.hatch_env)
+                
+                if python_info:
+                    env_name = args.hatch_env or env_manager.get_current_environment()
+                    print(f"Python environment info for '{env_name}':")
+                    print(f"  Status: {'Active' if python_info.get('enabled', False) else 'Inactive'}")
+                    print(f"  Python executable: {python_info['python_executable']}")
+                    print(f"  Python version: {python_info.get('python_version', 'Unknown')}")
+                    print(f"  Conda environment: {python_info.get('conda_env_name', 'N/A')}")
+                    print(f"  Environment path: {python_info['environment_path']}")
+                    print(f"  Created: {python_info.get('created_at', 'Unknown')}")
+                    print(f"  Package count: {python_info.get('package_count', 0)}")
+                    print(f"  Packages:")
+                    for pkg in python_info.get('packages', []):
+                        print(f"    - {pkg['name']} ({pkg['version']})")
+                    
+                    if detailed:
+                        print(f"\nDiagnostics:")
+                        diagnostics = env_manager.get_python_environment_diagnostics(args.hatch_env)
+                        if diagnostics:
+                            for key, value in diagnostics.items():
+                                print(f"  {key}: {value}")
+                        else:
+                            print("  No diagnostics available")
+                    
+                    return 0
+                else:
+                    env_name = args.hatch_env or env_manager.get_current_environment()
+                    print(f"No Python environment found for: {env_name}")
+                    
+                    # Show diagnostics for missing environment
+                    if detailed:
+                        print("\nDiagnostics:")
+                        general_diagnostics = env_manager.get_python_manager_diagnostics()
+                        for key, value in general_diagnostics.items():
+                            print(f"  {key}: {value}")
+                    
+                    return 1
+                    
+            elif args.python_command == "remove":
+                force = getattr(args, 'force', False)
+                
+                if not force:
+                    # Ask for confirmation
+                    env_name = args.hatch_env or env_manager.get_current_environment()
+                    response = input(f"Remove Python environment for '{env_name}'? [y/N]: ")
+                    if response.lower() not in ['y', 'yes']:
+                        print("Operation cancelled")
+                        return 0
+                
+                if env_manager.remove_python_environment_only(args.hatch_env):
+                    env_name = args.hatch_env or env_manager.get_current_environment()
+                    print(f"Python environment removed from: {env_name}")
+                    return 0
+                else:
+                    env_name = args.hatch_env or env_manager.get_current_environment()
+                    print(f"Failed to remove Python environment from: {env_name}")
+                    return 1
+                    
+            elif args.python_command == "shell":
+                cmd = getattr(args, 'cmd', None)
+                
+                if env_manager.launch_python_shell(args.hatch_env, cmd):
+                    return 0
+                else:
+                    env_name = args.hatch_env or env_manager.get_current_environment()
+                    print(f"Failed to launch Python shell for: {env_name}")
+                    return 1
+            
+            elif args.python_command == "add-hatch-mcp":
+                env_name = args.hatch_env or env_manager.get_current_environment()
+                tag = args.tag
+                
+                if env_manager.install_mcp_server(env_name, tag):
+                    print(f"hatch_mcp_server wrapper installed successfully in environment: {env_name}")
+                    return 0
+                else:
+                    print(f"Failed to install hatch_mcp_server wrapper in environment: {env_name}")
+                    return 1
+            
             else:
-                print("No Python subcommand specified")
+                print("Unknown Python environment command")
                 return 1
+            
     
     elif args.command == "package":
         if args.pkg_command == "add":

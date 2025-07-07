@@ -336,16 +336,16 @@ class HatchEnvironmentManager:
             try:
                 self._install_hatch_mcp_server(name, hatch_mcp_server_tag)
             except Exception as e:
-                self.logger.warning(f"Failed to install hatch_mcp_server in environment {name}: {e}")
-                # Don't fail environment creation if MCP server installation fails
+                self.logger.warning(f"Failed to install hatch_mcp_server wrapper in environment {name}: {e}")
+                # Don't fail environment creation if MCP wrapper installation fails
         
         return True
     
     def _install_hatch_mcp_server(self, env_name: str, tag: Optional[str] = None) -> None:
-        """Install hatch_mcp_server package in the specified environment.
+        """Install hatch_mcp_server wrapper package in the specified environment.
         
         Args:
-            env_name (str): Name of the environment to install MCP server in.
+            env_name (str): Name of the environment to install MCP wrapper in.
             tag (str, optional): Git tag/branch reference for the installation. Defaults to None (uses default branch).
             
         Raises:
@@ -394,22 +394,22 @@ class HatchEnvironmentManager:
                 context.set_config("python_env_vars", python_env_vars)
             
             # Install using the orchestrator
-            self.logger.info(f"Installing hatch_mcp_server in environment {env_name}")
+            self.logger.info(f"Installing hatch_mcp_server wrapper in environment {env_name}")
             self.logger.info(f"Using python executable: {python_executable}")
             installed_package = self.dependency_orchestrator.install_single_dep(mcp_dep, context)
             
             self._save_environments()
-            self.logger.info(f"Successfully installed hatch_mcp_server in environment {env_name}")
+            self.logger.info(f"Successfully installed hatch_mcp_server wrapper in environment {env_name}")
             
         except Exception as e:
-            self.logger.error(f"Failed to install hatch_mcp_server: {e}")
-            raise HatchEnvironmentError(f"Failed to install hatch_mcp_server: {e}") from e
+            self.logger.error(f"Failed to install hatch_mcp_server wrapper: {e}")
+            raise HatchEnvironmentError(f"Failed to install hatch_mcp_server wrapper: {e}") from e
 
     def install_mcp_server(self, env_name: Optional[str] = None, tag: Optional[str] = None) -> bool:
-        """Install hatch_mcp_server package in an existing environment.
+        """Install hatch_mcp_server wrapper package in an existing environment.
         
         Args:
-            env_name (str, optional): Name of the environment. Uses current environment if None.
+            env_name (str, optional): Name of the hatch environment. Uses current environment if None.
             tag (str, optional): Git tag/branch reference for the installation. Defaults to None (uses default branch).
             
         Returns:
@@ -432,7 +432,7 @@ class HatchEnvironmentManager:
             self._install_hatch_mcp_server(env_name, tag)
             return True
         except Exception as e:
-            self.logger.error(f"Failed to install MCP server in environment {env_name}: {e}")
+            self.logger.error(f"Failed to install MCP wrapper in environment {env_name}: {e}")
             return False
 
     def remove_environment(self, name: str) -> bool:
@@ -828,7 +828,8 @@ class HatchEnvironmentManager:
         return self.python_env_manager.list_environments()
     
     def create_python_environment_only(self, env_name: Optional[str] = None, python_version: Optional[str] = None, 
-                                      force: bool = False) -> bool:
+                                      force: bool = False, no_hatch_mcp_server: bool = False,
+                                      hatch_mcp_server_tag: Optional[str] = None) -> bool:
         """Create only a Python environment without creating a Hatch environment.
         
         Useful for adding Python environments to existing Hatch environments.
@@ -837,6 +838,8 @@ class HatchEnvironmentManager:
             env_name (str, optional): Environment name. Defaults to current environment.
             python_version (str, optional): Python version (e.g., "3.11"). Defaults to None.
             force (bool, optional): Whether to recreate if exists. Defaults to False.
+            no_hatch_mcp_server (bool, optional): Whether to skip installing hatch_mcp_server wrapper in the environment. Defaults to False.
+            hatch_mcp_server_tag (str, optional): Git tag/branch reference for hatch_mcp_server wrapper installation. Defaults to None.
             
         Returns:
             bool: True if successful, False otherwise.
@@ -893,6 +896,14 @@ class HatchEnvironmentManager:
                 # Reconfigure Python executable if this is the current environment
                 if env_name == self._current_env_name:
                     self._configure_python_executable(env_name)
+                
+                # Install hatch_mcp_server by default unless opted out
+                if not no_hatch_mcp_server:
+                    try:
+                        self._install_hatch_mcp_server(env_name, hatch_mcp_server_tag)
+                    except Exception as e:
+                        self.logger.warning(f"Failed to install hatch_mcp_server wrapper in environment {env_name}: {e}")
+                        # Don't fail environment creation if MCP wrapper installation fails
             
             return success
         except PythonEnvironmentError as e:
