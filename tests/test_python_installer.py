@@ -83,7 +83,7 @@ class TestPythonInstaller(unittest.TestCase):
         result = self.installer.install(dep, context)
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
 
-    @mock.patch.object(PythonInstaller, "_run_pip_subprocess", return_value=(0, "", ""))
+    @mock.patch.object(PythonInstaller, "_run_pip_subprocess", return_value=0)
     def test_install_success(self, mock_run):
         """Test install returns COMPLETED on successful pip install."""
         dep = {"name": "requests", "version_constraint": ">=2.0.0"}
@@ -91,7 +91,7 @@ class TestPythonInstaller(unittest.TestCase):
         result = self.installer.install(dep, context)
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
 
-    @mock.patch.object(PythonInstaller, "_run_pip_subprocess", return_value=(1, "", "error"))
+    @mock.patch.object(PythonInstaller, "_run_pip_subprocess", return_value=1)
     def test_install_failure(self, mock_run):
         """Test install raises InstallationError on pip failure."""
         dep = {"name": "requests", "version_constraint": ">=2.0.0"} # The content don't matter here given the mock
@@ -99,7 +99,7 @@ class TestPythonInstaller(unittest.TestCase):
         with self.assertRaises(InstallationError):
             self.installer.install(dep, context)
 
-    @mock.patch.object(PythonInstaller, "_run_pip_subprocess", return_value=(0, "", ""))
+    @mock.patch.object(PythonInstaller, "_run_pip_subprocess", return_value=0)
     def test_uninstall_success(self, mock_run):
         """Test uninstall returns COMPLETED on successful pip uninstall."""
         dep = {"name": "requests", "version_constraint": ">=2.0.0"}
@@ -107,7 +107,7 @@ class TestPythonInstaller(unittest.TestCase):
         result = self.installer.uninstall(dep, context)
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
 
-    @mock.patch.object(PythonInstaller, "_run_pip_subprocess", return_value=(1, "", "error"))
+    @mock.patch.object(PythonInstaller, "_run_pip_subprocess", return_value=1)
     def test_uninstall_failure(self, mock_run):
         """Test uninstall raises InstallationError on pip uninstall failure."""
         dep = {"name": "requests", "version_constraint": ">=2.0.0"}

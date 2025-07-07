@@ -86,15 +86,15 @@ class PythonInstaller(DependencyInstaller):
             
         return True
 
-    def _run_pip_subprocess(self, cmd: List[str], env_vars: Dict[str, str] = None) -> tuple[int, str, str]:
-        """Run a pip subprocess and capture stdout and stderr.
+    def _run_pip_subprocess(self, cmd: List[str], env_vars: Dict[str, str] = None) -> int:
+        """Run a pip subprocess and return the exit code.
 
         Args:
             cmd (List[str]): The pip command to execute as a list.
             env_vars (Dict[str, str], optional): Additional environment variables to set for the subprocess.
 
         Returns:
-            Tuple[int, str, str]: (returncode, stdout, stderr)
+            int: The return code of the pip subprocess.
 
         Raises:
             subprocess.TimeoutExpired: If the process times out.
@@ -108,33 +108,16 @@ class PythonInstaller(DependencyInstaller):
         self.logger.debug(f"Running pip command: {' '.join(cmd)} with env: {json.dumps(env, indent=2)}")
 
         try:
-            process = subprocess.Popen(
+            result = subprocess.run(
                 cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
                 env=env,
-                universal_newlines=True,
-                bufsize=1  # Line-buffered output
+                check=False,  # Don't raise on non-zero exit codes
+                timeout=300   # 5 minute timeout
             )
             
-            _stdout, _stderr = "", ""
-            for line in process.stdout:
-                if line:
-                    self.logger.info(f"pip stdout: {line.strip()}")
-                    _stdout += line
-
-            for line in process.stderr:
-                if line:
-                    self.logger.info(f"pip stderr: {line.strip()}")
-                    _stderr += line
-
-            process.wait()  # Ensure cleanup
-            return process.returncode, _stdout, _stderr
+            return result.returncode
 
         except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()  # Ensure cleanup
             raise InstallationError("Pip subprocess timed out", error_code="TIMEOUT", cause=None)
 
         except Exception as e:
@@ -211,8 +194,8 @@ class PythonInstaller(DependencyInstaller):
             if progress_callback:
                 progress_callback("install", 0.3, f"Installing {package_spec}")
 
-            returncode, stdout, stderr = self._run_pip_subprocess(cmd, env_vars=python_env_vars)
-            self.logger.debug(f"pip command: {' '.join(cmd)}\nreturncode: {returncode}\nstdout: {stdout}\nstderr: {stderr}")
+            returncode = self._run_pip_subprocess(cmd, env_vars=python_env_vars)
+            self.logger.debug(f"pip command: {' '.join(cmd)}\nreturncode: {returncode}")
             
             if returncode == 0:
 
@@ -222,16 +205,14 @@ class PythonInstaller(DependencyInstaller):
                 return InstallationResult(
                     dependency_name=name,
                     status=InstallationStatus.COMPLETED,
-                    error_message=stderr,
                     metadata={
-                        "pip_output": stdout,
                         "command": cmd,
                         "version_constraint": version_constraint
                     }
                 )
             
             else:
-                error_msg = f"Failed to install {name}: {stderr}"
+                error_msg = f"Failed to install {name} (exit code: {returncode})"
                 self.logger.error(error_msg)
                 raise InstallationError(
                     error_msg, 
@@ -289,7 +270,7 @@ class PythonInstaller(DependencyInstaller):
             if progress_callback:
                 progress_callback("uninstall", 0.5, f"Removing {name}")
 
-            returncode, stdout, stderr = self._run_pip_subprocess(cmd, env_vars=python_env_vars)
+            returncode = self._run_pip_subprocess(cmd, env_vars=python_env_vars)
 
             if returncode == 0:
 
@@ -300,25 +281,12 @@ class PythonInstaller(DependencyInstaller):
                 return InstallationResult(
                     dependency_name=name,
                     status=InstallationStatus.COMPLETED,
-                    error_message=stderr,
                     metadata={
-                        "pip_output": stdout,
                         "command": cmd
                     }
                 )
             else:
-
-                # pip uninstall can fail if package is not installed, which might be OK
-                if "not installed" in stderr.lower():
-                    self.logger.warning(f"Package {name} was not installed")
-                    return InstallationResult(
-                        dependency_name=name,
-                        status=InstallationStatus.COMPLETED,
-                        error_message=stderr,
-                        metadata={"warning": "Package was not installed"}
-                    )
-                
-                error_msg = f"Failed to uninstall {name}: {stderr}"
+                error_msg = f"Failed to uninstall {name} (exit code: {returncode})"
                 self.logger.error(error_msg)
                 
                 raise InstallationError(
