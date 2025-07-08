@@ -136,18 +136,29 @@ class SystemInstaller(DependencyInstaller):
             if context.simulation_mode:
                 return self._simulate_installation(dependency, context, progress_callback)
 
-            # Build and execute apt command
+            # Run apt-get update first
+            update_cmd = ["sudo", "apt-get", "update"]
+            update_returncode = self._run_apt_subprocess(update_cmd)
+            if update_returncode != 0:
+                raise InstallationError(
+                    f"apt-get update failed (see logs for details).",
+                    dependency_name=package_name,
+                    error_code="APT_UPDATE_FAILED",
+                    cause=None
+                )
+
+            # Build and execute apt install command
             cmd = self._build_apt_command(dependency, context)
             
             if progress_callback:
                 progress_callback(f"Installing {package_name}", 25.0, "Executing apt command")
 
-            returncode, stdout, stderr = self._run_apt_subprocess(cmd)
-            self.logger.debug(f"apt command: {cmd}\nreturn code: {returncode}\nstdout: {stdout}\nstderr: {stderr}")
+            returncode = self._run_apt_subprocess(cmd)
+            self.logger.debug(f"apt command: {cmd}\nreturn code: {returncode}")
             
             if returncode != 0:
                 raise InstallationError(
-                    f"Installation failed with error: {stderr.strip()}",
+                    f"Installation failed for {package_name} (see logs for details).",
                     dependency_name=package_name,
                     error_code="APT_INSTALL_FAILED",
                     cause=None
@@ -171,7 +182,6 @@ class SystemInstaller(DependencyInstaller):
                     "command_executed": " ".join(cmd),
                     "platform": platform.platform(),
                     "automated": context.get_config("automated", False),
-                    "output": stdout.strip(),
                 }
             )
         
@@ -216,7 +226,7 @@ class SystemInstaller(DependencyInstaller):
                 return self._simulate_uninstall(dependency, context, progress_callback)
 
             # Build apt remove command
-            cmd = ["apt", "remove", package_name]
+            cmd = ["sudo", "apt", "remove", package_name]
             
             # Add automation flag if configured
             if context.get_config("automated", False):
@@ -226,11 +236,11 @@ class SystemInstaller(DependencyInstaller):
                 progress_callback(f"Uninstalling {package_name}", 50.0, "Executing apt remove")
 
             # Execute command
-            returncode, stdout, stderr = self._run_apt_subprocess(cmd)
+            returncode = self._run_apt_subprocess(cmd)
 
             if returncode != 0:
                 raise InstallationError(
-                    f"Uninstallation failed with error: {stderr.strip()}",
+                    f"Uninstallation failed for {package_name} (see logs for details).",
                     dependency_name=package_name,
                     error_code="APT_UNINSTALL_FAILED",
                     cause=None
@@ -333,7 +343,7 @@ class SystemInstaller(DependencyInstaller):
         version_constraint = dependency["version_constraint"]
         
         # Start with base command
-        command = ["sudo", "apt-get", "update", "sudo", "apt", "install"]
+        command = ["sudo", "apt", "install"]
 
         # Add automation flag if configured
         if context.get_config("automated", False):
@@ -354,59 +364,31 @@ class SystemInstaller(DependencyInstaller):
         command.append(package_spec)
         return command
 
-    def _run_apt_subprocess(self, cmd: List[str]) -> tuple[int, str, str]:
-        """Run an apt subprocess and capture stdout and stderr.
+    def _run_apt_subprocess(self, cmd: List[str]) -> int:
+        """Run an apt subprocess and return the return code.
 
         Args:
             cmd (List[str]): The apt command to execute as a list.
 
         Returns:
-            Tuple[int, str, str]: (returncode, stdout, stderr)
+            int: The return code of the process.
 
         Raises:
             subprocess.TimeoutExpired: If the process times out.
-            Exception: For unexpected errors.
+            InstallationError: For unexpected errors.
         """
         env = os.environ.copy()
         try:
-            if cmd[0] == "sudo":
-                # Ensure sudo is available in the environment
-                if shutil.which("sudo") is None:
-                    raise InstallationError("sudo command not found", error_code="SUDO_NOT_FOUND", cause=None)
-                
-                process = subprocess.Popen(
-                    cmd,
-                    text=True,
-                    universal_newlines=True
-                )
 
-                process.communicate()  # Set a timeout for the command
-                process.wait()  # Ensure cleanup
-                return process.returncode, "", ""
-            else:
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    env=env,
-                    universal_newlines=True,
-                    bufsize=1  # Line-buffered output
-                )
-                _stdout, _stderr = "", ""
-                
-                for line in process.stdout:
-                    if line:
-                        self.logger.info(f"apt stdout: {line.strip()}")
-                        _stdout += line
-                
-                for line in process.stderr:
-                    if line:
-                        self.logger.info(f"apt stderr: {line.strip()}")
-                        _stderr += line
-                
-                process.wait()  # Ensure cleanup
-                return process.returncode, _stdout, _stderr
+            process = subprocess.Popen(
+                cmd,
+                text=True,
+                universal_newlines=True
+            )
+
+            process.communicate()  # Set a timeout for the command
+            process.wait()  # Ensure cleanup
+            return process.returncode
 
         except subprocess.TimeoutExpired:
             process.kill()
@@ -430,14 +412,20 @@ class SystemInstaller(DependencyInstaller):
             Optional[str]: Installed version if found, None otherwise.
         """
         try:
-            cmd = ["apt-cache", "policy", package_name]
-            returncode, stdout, stderr = self._run_apt_subprocess(cmd)
-            if returncode == 0:
-                for line in stdout.splitlines():
+            result = subprocess.run(
+                ["apt-cache", "policy", package_name],
+                text=True,
+                capture_output=True,
+                check=False
+            )
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
                     if "***" in line:
-                        version = line.split()[1]
-                        if version and version != "(none)":
-                            return version
+                        parts = line.split()
+                        if len(parts) > 1:
+                            version = parts[1]
+                            if version and version != "(none)":
+                                return version
             return None
         except Exception:
             return None
@@ -485,14 +473,18 @@ class SystemInstaller(DependencyInstaller):
             progress_callback(f"Simulating {package_name}", 0.5, "Running dry-run")
 
         try:
-            # Use apt's dry-run functionality
-            cmd = self._build_apt_command(dependency, context)
-            cmd.append("--simulate")
-            returncode, stdout, stderr = self._run_apt_subprocess(cmd)
+            # Use apt's dry-run functionality - need to use apt-get with --dry-run
+            cmd = ["apt-get", "install", "--dry-run", dependency["name"]]
+            
+            # Add automation flag if configured
+            if context.get_config("automated", False):
+                cmd.append("-y")
+            
+            returncode = self._run_apt_subprocess(cmd)
             
             if returncode != 0:
                 raise InstallationError(
-                    f"Simulation failed with error: {stderr}",
+                    f"Simulation failed for {package_name} (see logs for details).",
                     dependency_name=package_name,
                     error_code="APT_SIMULATION_FAILED",
                     cause=None
@@ -506,9 +498,9 @@ class SystemInstaller(DependencyInstaller):
                 status=InstallationStatus.COMPLETED,
                 metadata={
                     "simulation": True,
-                    "dry_run_output": stdout,
                     "command_simulated": " ".join(cmd),
-                    "automated": context.get_config("automated", False)
+                    "automated": context.get_config("automated", False),
+                    "package_manager": "apt",
                 }
             )
 
@@ -547,13 +539,13 @@ class SystemInstaller(DependencyInstaller):
             progress_callback(f"Simulating uninstall {package_name}", 0.5, "Running dry-run")
 
         try:
-            # Use apt's dry-run functionality for remove
-            cmd = ["apt", "remove", dependency["name"], "--simulate"]
-            returncode, stdout, stderr = self._run_apt_subprocess(cmd)
+            # Use apt's dry-run functionality for remove - use apt-get with --dry-run
+            cmd = ["apt-get", "remove", "--dry-run", dependency["name"]]
+            returncode = self._run_apt_subprocess(cmd)
             
             if returncode != 0:
                 raise InstallationError(
-                    f"Uninstall simulation failed with error: {stderr.strip()}",
+                    f"Uninstall simulation failed for {package_name} (see logs for details).",
                     dependency_name=package_name,
                     error_code="APT_UNINSTALL_SIMULATION_FAILED",
                     cause=None
@@ -568,7 +560,6 @@ class SystemInstaller(DependencyInstaller):
                 metadata={
                     "operation": "uninstall",
                     "simulation": True,
-                    "dry_run_output": stdout,
                     "command_simulated": " ".join(cmd),
                     "automated": context.get_config("automated", False)
                 }

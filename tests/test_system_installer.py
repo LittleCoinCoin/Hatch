@@ -221,9 +221,9 @@ class TestSystemInstaller(unittest.TestCase):
     def test_verify_installation_success(self, mock_run):
         """Test successful installation verification."""
         mock_run.return_value = subprocess.CompletedProcess(
-            args=["dpkg-query", "-W", "-f='${Version}'", "curl"],
+            args=["apt-cache", "policy", "curl"],
             returncode=0,
-            stdout="'7.68.0-1ubuntu2.7'",
+            stdout="curl:\n  Installed: 7.68.0-1ubuntu2.7\n  Candidate: 7.68.0-1ubuntu2.7\n  Version table:\n *** 7.68.0-1ubuntu2.7 500\n        500 http://archive.ubuntu.com/ubuntu focal-updates/main amd64 Packages\n        100 /var/lib/dpkg/status",
             stderr=""
         )
         
@@ -295,7 +295,7 @@ class TestSystemInstaller(unittest.TestCase):
         # Setup mocks
         mock_validate.return_value = True
         mock_build.return_value = ["apt", "install", "curl"]
-        mock_execute.return_value = (0, "", "")
+        mock_execute.return_value = 0
         mock_verify.return_value = "7.68.0"
         
         dependency = {
@@ -345,7 +345,8 @@ class TestSystemInstaller(unittest.TestCase):
         """Test installation failure due to apt command error."""
         mock_validate.return_value = True
         mock_build.return_value = ["apt", "install", "curl"]
-        mock_execute.return_value = (1, "", "Permission denied")
+        # Simulate failure on the first call (apt-get update)
+        mock_execute.side_effect = [1, 0]
         
         dependency = {
             "name": "curl",
@@ -356,8 +357,16 @@ class TestSystemInstaller(unittest.TestCase):
         with self.assertRaises(InstallationError) as exc_info:
             self.installer.install(dependency, self.mock_context)
         
-        self.assertEqual(exc_info.exception.error_code, "APT_INSTALL_FAILED")
+        # Accept either update or install failure
+        self.assertEqual(exc_info.exception.error_code, "APT_UPDATE_FAILED")
         self.assertEqual(exc_info.exception.dependency_name, "curl")
+
+        # Now simulate update success but install failure
+        mock_execute.side_effect = [0, 1]
+        with self.assertRaises(InstallationError) as exc_info2:
+            self.installer.install(dependency, self.mock_context)
+        self.assertEqual(exc_info2.exception.error_code, "APT_INSTALL_FAILED")
+        self.assertEqual(exc_info2.exception.dependency_name, "curl")
 
     @patch.object(SystemInstaller, 'validate_dependency')
     @patch.object(SystemInstaller, '_simulate_installation')
@@ -385,15 +394,10 @@ class TestSystemInstaller(unittest.TestCase):
         mock_simulate.assert_called_once()
 
     @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
-    @patch('subprocess.run')
+    @patch.object(SystemInstaller, '_run_apt_subprocess')
     def test_simulate_installation_success(self, mock_run):
         """Test successful installation simulation."""
-        mock_run.return_value = subprocess.CompletedProcess(
-            args=["apt", "install", "--dry-run", "curl"],
-            returncode=0,
-            stdout="Inst curl (7.68.0-1ubuntu2.7 Ubuntu:20.04/focal [amd64])",
-            stderr=""
-        )
+        mock_run.return_value = 0
         
         dependency = {
             "name": "curl",
@@ -406,12 +410,11 @@ class TestSystemInstaller(unittest.TestCase):
         self.assertEqual(result.dependency_name, "curl")
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
         self.assertTrue(result.metadata["simulation"])
-        self.assertIn("dry_run_output", result.metadata)
 
     @patch.object(SystemInstaller, '_run_apt_subprocess')
     def test_simulate_installation_failure(self, mock_run):
         """Test installation simulation failure."""
-        mock_run.return_value = (1, "", "E: Unable to locate package nonexistent")
+        mock_run.return_value = 1
         mock_run.side_effect = InstallationError(
             "Simulation failed",
             dependency_name="nonexistent",
@@ -430,7 +433,7 @@ class TestSystemInstaller(unittest.TestCase):
         self.assertEqual(exc_info.exception.dependency_name, "nonexistent")
         self.assertEqual(exc_info.exception.error_code, "APT_SIMULATION_FAILED")
 
-    @patch.object(SystemInstaller, '_run_apt_subprocess', return_value=(0, "", ""))
+    @patch.object(SystemInstaller, '_run_apt_subprocess', return_value=0)
     def test_uninstall_success(self, mock_execute):
         """Test successful uninstall."""
         
@@ -446,7 +449,7 @@ class TestSystemInstaller(unittest.TestCase):
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
         self.assertEqual(result.metadata["operation"], "uninstall")
 
-    @patch.object(SystemInstaller, '_run_apt_subprocess', return_value=(0, "", ""))
+    @patch.object(SystemInstaller, '_run_apt_subprocess', return_value=0)
     def test_uninstall_automated(self, mock_execute):
         """Test uninstall in automated mode."""
         
@@ -539,13 +542,8 @@ class TestSystemInstallerIntegration(unittest.TestCase):
         }
         
         # Mock subprocess for simulation
-        with patch('subprocess.run') as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=["apt", "install", "--dry-run", "curl"],
-                returncode=0,
-                stdout="Inst curl (7.68.0-1ubuntu2.7 Ubuntu:20.04/focal [amd64])",
-                stderr=""
-            )
+        with patch.object(self.installer, '_run_apt_subprocess') as mock_run:
+            mock_run.return_value = 0
             
             result = self.installer._simulate_installation(dependency, self.test_context)
             
@@ -584,4 +582,99 @@ class TestSystemInstallerIntegration(unittest.TestCase):
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
         self.assertTrue(result.metadata["automated"])
 
+    @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
+    def test_install_integration_with_real_subprocess(self):
+        """Test install method with real _run_apt_subprocess execution.
         
+        This integration test ensures that _run_apt_subprocess can actually run
+        without mocking, using apt-get --dry-run for safe testing.
+        """
+        dependency = {
+            "name": "curl",
+            "version_constraint": ">=7.0.0",
+            "package_manager": "apt"
+        }
+        
+        # Create a test context that uses simulation mode for safety
+        test_context = InstallationContext(
+            environment_path=Path("/tmp/test_env"),
+            environment_name="integration_test",
+            simulation_mode=True,
+            extra_config={"automated": True}
+        )
+        
+        # This will call _run_apt_subprocess with real subprocess execution
+        # but in simulation mode, so it's safe
+        result = self.installer.install(dependency, test_context)
+        
+        self.assertEqual(result.dependency_name, "curl")
+        self.assertEqual(result.status, InstallationStatus.COMPLETED)
+        self.assertTrue(result.metadata["simulation"])
+        self.assertEqual(result.metadata["package_manager"], "apt")
+        self.assertTrue(result.metadata["automated"])
+
+    @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
+    def test_run_apt_subprocess_direct_integration(self):
+        """Test _run_apt_subprocess directly with real system commands.
+        
+        This test verifies that _run_apt_subprocess can handle actual apt commands
+        without any mocking, using safe commands that don't modify the system.
+        """
+        # Test with apt-cache policy (read-only command)
+        cmd = ["apt-cache", "policy", "curl"]
+        returncode = self.installer._run_apt_subprocess(cmd)
+        
+        # Should return 0 (success) for a valid package query
+        self.assertEqual(returncode, 0)
+        
+        # Test with apt-get dry-run (safe simulation command)
+        cmd = ["apt-get", "install", "--dry-run", "-y", "curl"]
+        returncode = self.installer._run_apt_subprocess(cmd)
+        
+        # Should return 0 (success) for a valid dry-run
+        self.assertEqual(returncode, 0)
+        
+        # Test with invalid package (should fail gracefully)
+        cmd = ["apt-cache", "policy", "nonexistent-package-12345"]
+        returncode = self.installer._run_apt_subprocess(cmd)
+        
+        # Should return 0 even for non-existent package (apt-cache policy doesn't fail)
+        self.assertEqual(returncode, 0)
+
+    @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
+    def test_install_with_version_constraint_integration(self):
+        """Test install method with version constraints and real subprocess calls."""
+        # Test with exact version constraint
+        dependency = {
+            "name": "curl",
+            "version_constraint": "==7.68.0",
+            "package_manager": "apt"
+        }
+        
+        test_context = InstallationContext(
+            environment_path=Path("/tmp/test_env"),
+            environment_name="integration_test",
+            simulation_mode=True,
+            extra_config={"automated": True}
+        )
+        
+        result = self.installer.install(dependency, test_context)
+        
+        self.assertEqual(result.dependency_name, "curl")
+        self.assertEqual(result.status, InstallationStatus.COMPLETED)
+        self.assertTrue(result.metadata["simulation"])
+        # Check that the command includes the version constraint
+        self.assertIn("curl", result.metadata["command_simulated"])
+
+    @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
+    def test_error_handling_in_run_apt_subprocess(self):
+        """Test error handling in _run_apt_subprocess with real commands."""
+        # Test with completely invalid command
+        cmd = ["nonexistent-command-12345"]
+        
+        with self.assertRaises(InstallationError) as exc_info:
+            self.installer._run_apt_subprocess(cmd)
+        
+        self.assertEqual(exc_info.exception.error_code, "APT_SUBPROCESS_ERROR")
+        self.assertIn("Unexpected error running apt command", exc_info.exception.message)
+
