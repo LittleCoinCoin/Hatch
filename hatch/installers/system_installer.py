@@ -30,7 +30,7 @@ class SystemInstaller(DependencyInstaller):
     def __init__(self):
         """Initialize the SystemInstaller."""
         self.logger = logging.getLogger("hatch.installers.system_installer")
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.INFO)
 
     @property
     def installer_type(self) -> str:
@@ -319,13 +319,12 @@ class SystemInstaller(DependencyInstaller):
             self.logger.error(f"Invalid version constraint format: {version_constraint}")
             return False
 
-    def _build_apt_command(self, dependency: Dict[str, Any], context: InstallationContext, sudo: bool = True) -> List[str]:
+    def _build_apt_command(self, dependency: Dict[str, Any], context: InstallationContext) -> List[str]:
         """Build the apt install command for the dependency.
 
         Args:
             dependency (Dict[str, Any]): Dependency object.
             context (InstallationContext): Installation context.
-            sudo (bool): Whether to use sudo for the command.
 
         Returns:
             List[str]: Apt command as list of arguments.
@@ -334,10 +333,7 @@ class SystemInstaller(DependencyInstaller):
         version_constraint = dependency["version_constraint"]
         
         # Start with base command
-        if sudo:
-            command = ["sudo", "apt", "install"]
-        else:
-            command = ["apt", "install"]
+        command = ["sudo", "apt-get", "update", "sudo", "apt", "install"]
 
         # Add automation flag if configured
         if context.get_config("automated", False):
@@ -380,26 +376,9 @@ class SystemInstaller(DependencyInstaller):
                 
                 process = subprocess.Popen(
                     cmd,
-                    #stdout=subprocess.PIPE,
-                    #stderr=subprocess.PIPE,
                     text=True,
-                    #env=env,
                     universal_newlines=True
-                    #bufsize=1  # Line-buffered output
                 )
-                # _stdout, _stderr = "", ""
-                
-                # for line in process.stdout:
-                #     if line:
-                #         self.logger.info(f"apt stdout: {line.strip()}")
-                #         _stdout += line
-                
-                # for line in process.stderr:
-                #     if line:
-                #         self.logger.info(f"apt stderr: {line.strip()}")
-                #         _stderr += line
-                
-                # process.wait()  # Ensure cleanup
 
                 process.communicate()  # Set a timeout for the command
                 process.wait()  # Ensure cleanup
