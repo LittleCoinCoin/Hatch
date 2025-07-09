@@ -57,16 +57,6 @@ class HatchEnvironmentManager:
         self.environments_file = self.environments_dir / "environments.json"
         self.current_env_file = self.environments_dir / "current_env"
         
-        # Initialize files if they don't exist
-        if not self.environments_file.exists():
-            self._initialize_environments_file()
-        
-        if not self.current_env_file.exists():
-            self._initialize_current_env_file()
-
-        # Load environments into cache
-        self._environments = self._load_environments()
-        self._current_env_name = self._load_current_env_name()
         
         # Initialize Python environment manager
         self.python_env_manager = PythonEnvironmentManager(environments_dir=self.environments_dir)
@@ -87,24 +77,14 @@ class HatchEnvironmentManager:
             registry_service=self.registry_service,
             registry_data=self.registry_data
         )
-        
-        # Configure Python executable for current environment
-        if self._current_env_name:
-            self._configure_python_executable(self._current_env_name)
+
+        # Load environments into cache
+        self._environments = self._load_environments()
+        self._current_env_name = self._load_current_env_name()
 
     def _initialize_environments_file(self):
         """Create the initial environments file with default environment."""
-        default_environments = {
-            "default": {
-                "name": "default",
-                "description": "Default environment",
-                "created_at": datetime.datetime.now().isoformat(),
-                "packages": [],
-                "python_environment": False,  # Legacy field
-                "python_version": None,  # Legacy field
-                "python_env": None  # Enhanced metadata structure
-            }
-        }
+        default_environments = {}
         
         with open(self.environments_file, 'w') as f:
             json.dump(default_environments, f, indent=2)
@@ -119,15 +99,41 @@ class HatchEnvironmentManager:
         self.logger.info("Initialized current environment to default")
     
     def _load_environments(self) -> Dict:
-        """Load environments from the environments file."""
+        """Load environments from the environments file.
+
+        This method attempts to read the environments from the JSON file.
+        If the file is not found or contains invalid JSON, it initializes
+        the file with a default environment and returns that.
+
+        Returns:
+            Dict: Dictionary of environments loaded from the file.
+        """
+
         try:
             with open(self.environments_file, 'r') as f:
                 return json.load(f)
         except (json.JSONDecodeError, FileNotFoundError) as e:
-            self.logger.error(f"Failed to load environments: {e}")
+            self.logger.info(f"Failed to load environments: {e}. Initializing with default environment.")
+            
+            # Touch the files with default values
             self._initialize_environments_file()
-            return {"default": {"name": "default", "description": "Default environment", 
-                    "created_at": datetime.datetime.now().isoformat(), "packages": []}}
+            self._initialize_current_env_file()
+
+            # Load created default environment
+            with open(self.environments_file, 'r') as f:
+                _environments = json.load(f)
+
+            # Assign to cache
+            self._environments = _environments
+
+            # Actually create the default environment
+            self.create_environment("default", description="Default environment")
+            
+            # Set correct Python executable info to the one of default environment
+            self._configure_python_executable("default")
+
+            return _environments
+
     
     def _load_current_env_name(self) -> str:
         """Load current environment name from disk."""
