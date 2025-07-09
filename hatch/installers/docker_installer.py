@@ -323,7 +323,8 @@ class DockerInstaller(DependencyInstaller):
                 error_code="DOCKER_DAEMON_NOT_AVAILABLE",
                 cause=e
                 )
-                
+        if self._docker_client is None:
+            self._docker_client = docker.from_env()
         return self._docker_client
 
     def _validate_version_constraint(self, version_constraint: str) -> bool:
@@ -407,7 +408,7 @@ class DockerInstaller(DependencyInstaller):
                 
             # Pull the image
             client.images.pull(image_name)
-            
+
             logger.info(f"Successfully pulled Docker image: {image_name}")
             
         except ImageNotFound as e:
