@@ -62,6 +62,7 @@ class DependencyInstallerOrchestrator:
             registry_data (Dict[str, Any]): Registry data for dependency resolution.
         """
         self.logger = logging.getLogger("hatch.dependency_orchestrator")
+        self.logger.setLevel(logging.INFO)
         self.package_loader = package_loader
         self.registry_service = registry_service
         self.registry_data = registry_data
@@ -128,6 +129,7 @@ class DependencyInstallerOrchestrator:
 
         try:
             self.logger.info(f"Installing {dep_type} dependency: {dep['name']}")
+            self.logger.debug(f"Dependency details: {dep}")
             result = installer.install(dep, context)
             if result.status == InstallationStatus.COMPLETED:
                 installed_package = {
@@ -312,9 +314,9 @@ class DependencyInstallerOrchestrator:
             all_deps = self.package_service.get_dependencies()
             
             dependencies_by_type = {
-                "hatch": [],
-                "python": [],
                 "system": [],
+                "python": [],
+                "hatch": [],
                 "docker": []
             }
             

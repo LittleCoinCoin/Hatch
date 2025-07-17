@@ -153,7 +153,9 @@ class PythonInstaller(DependencyInstaller):
 
         # Get Python executable from context or use system default
         python_env_vars = context.get_config("python_env_vars", {})
+        self.logger.debug(f"Using Python environment variables: {python_env_vars}")
         python_exec = python_env_vars.get("PYTHON", sys.executable)
+        self.logger.debug(f"Using Python executable: {python_exec}")
         
         # Build package specification with version constraint
         # Let pip resolve the actual version based on the constraint
@@ -163,7 +165,7 @@ class PythonInstaller(DependencyInstaller):
             package_spec = name
         
         # Handle extras if specified
-        extras = dependency.get("extras")
+        extras = dependency.get("extras", [])
         if extras:
             if isinstance(extras, list):
                 extras_str = ",".join(extras)
@@ -175,6 +177,7 @@ class PythonInstaller(DependencyInstaller):
                 package_spec = f"{name}[{extras_str}]"
 
         # Build pip command
+        self.logger.debug(f"Installing Python package: {package_spec} using {python_exec}")
         cmd = [str(python_exec), "-m", "pip", "install", package_spec]
         
         # Add additional pip options
@@ -226,7 +229,7 @@ class PythonInstaller(DependencyInstaller):
             raise InstallationError(error_msg, dependency_name=name, error_code="TIMEOUT")
         
         except Exception as e:
-            error_msg = f"Unexpected error installing {name}: {e}"
+            error_msg = f"Unexpected error installing {name}: {repr(e)}"
             self.logger.error(error_msg)
             raise InstallationError(error_msg, dependency_name=name, cause=e)
 
@@ -329,7 +332,7 @@ class PythonInstaller(DependencyInstaller):
             "package_manager": dependency.get("package_manager", "pip"),
             "package_spec": package_spec,
             "version_constraint": version_constraint,
-            "extras": dependency.get("extras")
+            "extras": dependency.get("extras", []),
         })
         
         return info
