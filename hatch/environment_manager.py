@@ -81,6 +81,8 @@ class HatchEnvironmentManager:
         # Load environments into cache
         self._environments = self._load_environments()
         self._current_env_name = self._load_current_env_name()
+        # Set correct Python executable info to the one of default environment
+        self._configure_python_executable(self._current_env_name)
 
     def _initialize_environments_file(self):
         """Create the initial environments file with default environment."""
@@ -128,9 +130,6 @@ class HatchEnvironmentManager:
 
             # Actually create the default environment
             self.create_environment("default", description="Default environment")
-            
-            # Set correct Python executable info to the one of default environment
-            self._configure_python_executable("default")
 
             return _environments
 
