@@ -208,8 +208,7 @@ class PythonEnvironmentManager:
                 self.logger.debug(f"Using Python version: {python_version}")
 
             result = subprocess.run(
-                cmd,
-                timeout=300  # 5 minutes timeout
+                cmd
             )
             
             if result.returncode == 0:
@@ -218,11 +217,7 @@ class PythonEnvironmentManager:
                 error_msg = f"Failed to create Python environment (see terminal output)"
                 self.logger.error(error_msg)
                 raise PythonEnvironmentError(error_msg)
-                
-        except subprocess.TimeoutExpired:
-            error_msg = f"Timeout creating Python environment for {env_name}"
-            self.logger.error(error_msg)
-            raise PythonEnvironmentError(error_msg)
+
         except Exception as e:
             error_msg = f"Unexpected error creating Python environment: {e}"
             self.logger.error(error_msg)
