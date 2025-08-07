@@ -28,7 +28,7 @@ def generate_server_py(package_name: str):
         str: Content for server.py file.
     """
     return f"""import logging
-from hatchling import HatchMCP
+from hatch_mcp_server import HatchMCP
 
 # Initialize MCP server with metadata
 hatch_mcp = HatchMCP("{package_name}",

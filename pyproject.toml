@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hatch"
-version = "0.3.1"
+dynamic = ["version"]
 authors = [
   { name = "Hatch Team" },
 ]
-description = "Package manager for the Hatch! ecosystem"
+description = "Package manager for the Cracking Shells ecosystem"
 readme = "README.md"
 requires-python = ">=3.12"
 classifiers = [
@@ -21,7 +21,9 @@ dependencies = [
     "jsonschema>=4.0.0",
     "requests>=2.25.0",
     "packaging>=20.0",
-    "hatch_validator @ git+https://github.com/CrackingShells/Hatch-Validator.git@v0.3.2"
+    "docker>=7.1.0",
+    
+    "hatch_validator @ git+https://github.com/CrackingShells/Hatch-Validator.git@dev"
 ]
 
 [project.scripts]
@@ -33,4 +35,9 @@ hatch = "hatch.cli_hatch:main"
 
 [tool.setuptools]
 package-dir = {"" = "."}
-packages = ["hatch"]
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
+
+[tool.setuptools.packages.find]
+where = ["."]
