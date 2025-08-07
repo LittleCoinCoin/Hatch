@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hatch"
-version = "0.4.0"
+dynamic = ["version"]
 authors = [
   { name = "Hatch Team" },
 ]
-description = "Package manager for the Hatch! ecosystem"
+description = "Package manager for the Cracking Shells ecosystem"
 readme = "README.md"
 requires-python = ">=3.12"
 classifiers = [
@@ -35,6 +35,9 @@ hatch = "hatch.cli_hatch:main"
 
 [tool.setuptools]
 package-dir = {"" = "."}
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
 
 [tool.setuptools.packages.find]
 where = ["."]
