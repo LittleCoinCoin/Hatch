@@ -4,7 +4,7 @@
 
 MAJOR=0
 MINOR=4
-PATCH=1
-DEV_NUMBER=
-BUILD_NUMBER=
-BRANCH=main
+PATCH=2
+DEV_NUMBER=0
+BUILD_NUMBER=0
+BRANCH=fix/hatch-validator-pinned-version
