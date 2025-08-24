@@ -3,8 +3,8 @@
 # The companion VERSION file contains the simple format for setuptools
 
 MAJOR=0
-MINOR=4
-PATCH=4
-DEV_NUMBER=
+MINOR=5
+PATCH=1
+DEV_NUMBER=2
 BUILD_NUMBER=
-BRANCH=main
+BRANCH=dev
