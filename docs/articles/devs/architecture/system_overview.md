@@ -58,8 +58,6 @@ Coordinates multi-type dependency installation:
 
 ## System Architecture
 
-![Architecture Diagram](../../../resources/images/architecture.svg)
-
 ## Key Architectural Patterns
 
 ### Strategy Pattern
