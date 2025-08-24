@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 from hatch.environment_manager import HatchEnvironmentManager
+from hatch_validator import HatchPackageValidator
 from hatch.template_generator import create_package_template
 
 def main():
@@ -163,15 +164,32 @@ def main():
 
     elif args.command == "validate":
         package_path = Path(args.package_dir).resolve()
-        
-        # Use the validator from environment manager
-        is_valid, _ = env_manager.package_validator.validate_package(package_path)
-        
+
+        # Create validator with registry data from environment manager
+        validator = HatchPackageValidator(
+            version="latest",
+            allow_local_dependencies=True,
+            registry_data=env_manager.registry_data
+        )
+
+        # Validate the package
+        is_valid, validation_results = validator.validate_package(package_path)
+
         if is_valid:
             print(f"Package validation SUCCESSFUL: {package_path}")
             return 0
         else:
             print(f"Package validation FAILED: {package_path}")
+
+            # Print detailed validation results if available
+            if validation_results and isinstance(validation_results, dict):
+                for category, result in validation_results.items():
+                    if category != 'valid' and category != 'metadata' and isinstance(result, dict):
+                        if not result.get('valid', True) and result.get('errors'):
+                            print(f"\n{category.replace('_', ' ').title()} errors:")
+                            for error in result['errors']:
+                                print(f"  - {error}")
+
             return 1
         
     elif args.command == "env":
