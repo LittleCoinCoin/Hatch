@@ -68,7 +68,5 @@ Process-focused guidance for contributing to the Hatch project.
 
 ## Getting Help
 
-- Check the relevant documentation section above
-- Review the [FAQ](./articles/users/faq.md) for common questions
 - Search existing [GitHub Issues](https://github.com/CrackingShells/Hatch/issues)
 - Create a new issue for bugs or feature requests
