@@ -126,7 +126,8 @@ def main():
     pkg_add_parser.add_argument("--version", "-v", default=None, help="Version of the package (optional)")
     pkg_add_parser.add_argument("--force-download", "-f", action="store_true", help="Force download even if package is in cache")
     pkg_add_parser.add_argument("--refresh-registry", "-r", action="store_true", help="Force refresh of registry data")
-    
+    pkg_add_parser.add_argument("--auto-approve", action="store_true", help="Automatically approve changes installation of deps for automation scenario")
+
     # Remove package command
     pkg_remove_parser = pkg_subparsers.add_parser("remove", help="Remove a package from the current environment")
     pkg_remove_parser.add_argument("package_name", help="Name of the package to remove")
@@ -387,7 +388,7 @@ def main():
     elif args.command == "package":
         if args.pkg_command == "add":
             if env_manager.add_package_to_environment(args.package_path_or_name, args.env, args.version, 
-                                                      args.force_download, args.refresh_registry):
+                                                      args.force_download, args.refresh_registry, args.auto_approve):
                 print(f"Successfully added package: {args.package_path_or_name}")
                 return 0
             else:
