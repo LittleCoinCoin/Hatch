@@ -10,10 +10,9 @@ Hatch provides powerful tools for managing MCP server packages, environments, an
 
 ### For Users
 
-- **[Getting Started](./articles/users/getting_started.md)** - Quick start guide for using Hatch
-- **[Command Reference](./articles/users/command_reference.md)** - Complete CLI command documentation
-- **[Environment Management](./articles/users/environment_management.md)** - Working with Hatch environments
-- **[Package Management](./articles/users/package_management.md)** - Installing and managing packages
+- **[Getting Started](./articles/users/GettingStarted.md)** - Quick start guide for using Hatch
+- **[Command Reference](./articles/users/CLIReference.md)** - Complete CLI command documentation
+- **[Tutorials Start](./articles/users/tutorials/01-getting-started/01-installation.md)** - Step-by-step guides for your journey from installation to authoring Hatch packages for MCP server easy sharing.
 
 ### For Developers
 
@@ -69,7 +68,5 @@ Process-focused guidance for contributing to the Hatch project.
 
 ## Getting Help
 
-- Check the relevant documentation section above
-- Review the [FAQ](./articles/users/faq.md) for common questions
 - Search existing [GitHub Issues](https://github.com/CrackingShells/Hatch/issues)
 - Create a new issue for bugs or feature requests

@@ -6,10 +6,14 @@ Hatch is the package manager for the Hatch! ecosystem. The documentation in `doc
 
 ## Quick links
 
+The major documentation entry points are:
+
 - Documentation (canonical): `docs/index.md`
 - Getting started (users): `docs/articles/users/GettingStarted.md`
 - CLI reference: `docs/articles/users/CLIReference.md`
 - Developer docs and architecture: `docs/articles/devs/index.md`
+
+But, really, just look at the site: <https://crackingshells.github.io/Hatch/>
 
 ## Quick start
 
@@ -30,7 +34,7 @@ hatch create my-package --description "My MCP server package"
 ## Contributing and help
 
 - Read developer onboarding and contribution guides in `docs/articles/devs/`
-- Report issues or feature requests on the GitHub repository: https://github.com/CrackingShells/Hatch/issues
+- Report issues or feature requests on the GitHub repository: <https://github.com/CrackingShells/Hatch/issues>
 
 ## License
 
