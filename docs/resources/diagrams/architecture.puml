@@ -1,0 +1,90 @@
+@startuml architecture
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Hatch Architecture Overview
+
+Container_Boundary(cli, "CLI Layer") {
+    Component(cli_hatch, "CLI Interface", "Python", "Command-line interface\nArgument parsing and validation")
+}
+
+Container_Boundary(core, "Core Management") {
+    Component(env_manager, "Environment Manager", "Python", "Environment lifecycle\nMetadata persistence\nCurrent environment tracking")
+    Component(python_env_manager, "Python Environment Manager", "Python", "Conda/mamba integration\nPython executable resolution\nPackage installation coordination")
+}
+
+Container_Boundary(package_system, "Package System") {
+    Component(package_loader, "Package Loader", "Python", "Local package inspection\nMetadata validation\nStructure verification")
+    Component(template_generator, "Template Generator", "Python", "Package template creation\nBoilerplate file generation\nDefault metadata setup")
+}
+
+Container_Boundary(registry, "Registry System") {
+    Component(registry_retriever, "Registry Retriever", "Python", "Package downloads\nCaching with TTL\nNetwork fallback handling")
+    Component(registry_explorer, "Registry Explorer", "Python", "Package discovery\nSearch capabilities\nRegistry metadata parsing")
+}
+
+Container_Boundary(installation, "Installation System") {
+    Component(orchestrator, "Dependency Orchestrator", "Python", "Multi-type dependency coordination\nInstallation planning\nProgress reporting")
+    Component(installation_context, "Installation Context", "Python", "Installation state management\nEnvironment isolation\nProgress tracking")
+    Component(installer_base, "Installer Base", "Python", "Common installer interface\nError handling patterns\nResult aggregation")
+    
+    Component(python_installer, "Python Installer", "Python", "Pip package installation\nConda environment integration")
+    Component(system_installer, "System Installer", "Python", "System package installation\nPrivilege management\nAPT/package manager integration")
+    Component(docker_installer, "Docker Installer", "Python", "Docker image management\nRegistry authentication\nImage version handling")
+    Component(hatch_installer, "Hatch Installer", "Python", "Hatch package dependencies\nRecursive installation\nPackage registration")
+}
+
+Container_Boundary(validation, "Validation System") {
+    Component(hatch_validator, "Hatch Validator", "Python", "Schema validation\nPackage compliance checking\nMetadata verification")
+}
+
+Container_Boundary(external, "External Systems") {
+    ComponentDb(conda_mamba, "Conda/Mamba", "Environment Manager", "Python environment creation\nPackage management")
+    ComponentDb(docker_engine, "Docker Engine", "Container Runtime", "Image management\nContainer execution")
+    ComponentDb(system_pm, "System Package Managers", "OS Tools", "APT, YUM, etc.\nSystem-level dependencies")
+    ComponentDb(registry_remote, "Package Registry", "Remote Service", "Package repository\nMetadata distribution")
+    ComponentDb(schemas, "Hatch Schemas", "JSON Schema", "Package metadata schema\nValidation rules")
+}
+
+' CLI relationships
+Rel(cli_hatch, env_manager, "Manages environments")
+Rel(cli_hatch, package_loader, "Loads and validates packages")
+Rel(cli_hatch, template_generator, "Creates package templates")
+
+' Core management relationships
+Rel(env_manager, python_env_manager, "Delegates Python operations")
+Rel(env_manager, orchestrator, "Coordinates installations")
+Rel(python_env_manager, conda_mamba, "Creates Python environments")
+
+' Package system relationships
+Rel(package_loader, hatch_validator, "Validates packages")
+Rel(template_generator, schemas, "Uses schema for templates")
+
+' Registry system relationships
+Rel(registry_retriever, registry_remote, "Downloads packages")
+Rel(registry_explorer, registry_remote, "Searches packages")
+
+' Installation system relationships
+Rel(orchestrator, installation_context, "Manages context")
+Rel(orchestrator, python_installer, "Installs Python packages")
+Rel(orchestrator, system_installer, "Installs system packages")
+Rel(orchestrator, docker_installer, "Installs Docker images")
+Rel(orchestrator, hatch_installer, "Installs Hatch packages")
+
+Rel(python_installer, installer_base, "Implements")
+Rel(system_installer, installer_base, "Implements")
+Rel(docker_installer, installer_base, "Implements")
+Rel(hatch_installer, installer_base, "Implements")
+
+' External system relationships
+Rel(python_installer, conda_mamba, "Installs packages via pip")
+Rel(system_installer, system_pm, "Installs system packages")
+Rel(docker_installer, docker_engine, "Manages Docker images")
+Rel(hatch_installer, package_loader, "Loads dependency packages")
+
+' Validation relationships
+Rel(hatch_validator, schemas, "Uses validation schemas")
+
+SHOW_LEGEND()
+@enduml
