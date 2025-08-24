@@ -58,11 +58,11 @@ Example failure output (category grouping):
 Package validation FAILED: C:\path\to\my-package
 
 Entry Point Errors:
-	- Missing required field 'entry_point'
-	- Entry point 'hatch_mcp_server_entry.py' not found
+ - Missing required field 'entry_point'
+ - Entry point 'hatch_mcp_server_entry.py' not found
 
 Dependency Errors:
-	- Dependency 'some_pkg' not found in registry
+ - Dependency 'some_pkg' not found in registry
 ```
 
 Note that `metadata` category details may not be printed in the grouped list by the CLI loop; important metadata validation failures may still be reported elsewhere by the validator object or surfaced in tooling that consumes the validator results.
