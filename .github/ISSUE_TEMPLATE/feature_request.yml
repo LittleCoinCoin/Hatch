@@ -1,0 +1,166 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement for Hatch package manager
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! Please provide as much detail as possible to help us understand your request.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission checklist
+      description: Please verify these items before submitting
+      options:
+        - label: I have searched existing issues and discussions to ensure this is not a duplicate
+          required: true
+        - label: I have checked the [documentation](https://crackingshells.github.io/Hatch/) to see if this feature already exists
+          required: true
+
+  - type: dropdown
+    id: feature_category
+    attributes:
+      label: Feature Category
+      description: What area does this feature request relate to?
+      options:
+        - Package Management (installation, dependency resolution, versioning)
+        - Environment Management (creation, isolation, switching)
+        - Registry & Discovery (package search, metadata, caching)
+        - CLI & User Experience (commands, output, usability)
+        - Template & Scaffolding (package creation, boilerplate generation)
+        - Installation & Deployment (installers, deployment strategies)
+        - Performance & Optimization (speed, memory, caching)
+        - Validation & Quality (package validation, linting, testing)
+        - Integration (CI/CD, external tools, APIs)
+        - Documentation & Help
+        - Developer Experience
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem_statement
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? What is the current limitation?
+      placeholder: |
+        Describe the problem or limitation you're experiencing.
+        For example: "Currently, when managing packages..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your ideal solution to this problem
+      placeholder: |
+        Describe what you would like to see implemented.
+        Be as specific as possible about the desired behavior, commands, or workflow.
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_cases
+    attributes:
+      label: Use Cases
+      description: Describe specific scenarios where this feature would be useful
+      placeholder: |
+        Provide concrete examples of how this feature would be used:
+        1. When working with large projects with many dependencies...
+        2. During development workflow...
+        3. To accomplish...
+    validations:
+      required: true
+
+  - type: textarea
+    id: cli_design
+    attributes:
+      label: CLI Design (if applicable)
+      description: |
+        If this feature involves new CLI commands, describe the proposed command structure
+      placeholder: |
+        Propose the command syntax and options:
+        
+        hatch package search <query> --filter <type>
+        hatch env clone <source-env> <target-env>
+        hatch template list --category <category>
+        
+        Include:
+        - Command names and subcommands
+        - Required and optional arguments
+        - Flags and options
+        - Expected output format
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What alternatives have you considered? What workarounds are you currently using?
+      placeholder: |
+        Describe any alternative solutions or workarounds you've considered or tried.
+        Include why they don't fully solve the problem.
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to your workflow?
+      options:
+        - Low - Nice to have
+        - Medium - Would improve my workflow
+        - High - Blocking my work or significantly impacts productivity
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation_ideas
+    attributes:
+      label: Implementation Ideas
+      description: |
+        Do you have any ideas about how this could be implemented? 
+        (Optional - only if you have technical insights)
+      placeholder: |
+        If you have ideas about implementation approaches, technical details, or architecture:
+        - Which modules would be affected
+        - Integration points with existing systems
+        - Potential challenges or considerations
+        - Similar features in other package managers
+
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility Considerations
+      description: |
+        Are there any compatibility or migration concerns with this feature?
+      placeholder: |
+        Consider:
+        - Backward compatibility with existing packages
+        - Impact on existing environments
+        - Schema or metadata changes
+        - Breaking changes to CLI or API
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Would you be interested in contributing to this feature?
+      options:
+        - label: I would be willing to contribute to implementing this feature
+        - label: I would be willing to help with testing this feature
+        - label: I would be willing to help with documentation for this feature
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other context, examples, or references that would help explain this feature request
+      placeholder: |
+        Include any additional information:
+        - Links to similar features in other tools
+        - Screenshots or mockups
+        - References to standards or specifications
+        - Community feedback or discussions
