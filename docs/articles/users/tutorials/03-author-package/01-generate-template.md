@@ -154,5 +154,5 @@ cat described-package/hatch_metadata.json
 The description should appear in the metadata and README files.
 </details>
 
-> Previous: [Environment Management Checkpoint](../02-environments/03-checkpoint.md)  
-> Next: [Edit Metadata](02-edit-metadata.md)
+> Previous: [Environment Management Checkpoint](../02-environments/03-checkpoint.md)
+> Next: [Implement Functionality](02-implement-functionality.md)
