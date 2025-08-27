@@ -79,7 +79,7 @@ def generate_metadata_json(package_name: str, description: str = ""):
         dict: Metadata dictionary.
     """
     return {
-        "package_schema_version": "1.2.0",
+        "package_schema_version": "1.2.1",
         "name": package_name,
         "version": "0.1.0",
         "description": description or f"A Hatch package for {package_name}",
@@ -91,7 +91,11 @@ def generate_metadata_json(package_name: str, description: str = ""):
         "license": {
             "name": "MIT"
         },
-        "entry_point": "hatch_mcp_server_entry.py",
+        "entry_point": 
+        {
+            "mcp_server": "mcp_server.py",
+            "hatch_mcp_server": "hatch_mcp_server_entry.py"
+        },
         "tools": [
             {
                 "name": "example_tool",

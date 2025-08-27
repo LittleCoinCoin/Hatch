@@ -101,14 +101,14 @@ You can maintain multiple environments for different projects:
 
 ```bash
 # Project-specific environments
-hatch env create project-a --description "Environment for Project A" --python-version 3.11
-hatch env create project-b --description "Environment for Project B" --python-version 3.12
+hatch env create project_a --description "Environment for Project A" --python-version 3.11
+hatch env create project_b --description "Environment for Project B" --python-version 3.12
 
 # Switch between them as needed
-hatch env use project-a
+hatch env use project_a
 # Work on project A...
 
-hatch env use project-b  
+hatch env use project_b  
 # Work on project B...
 ```
 
@@ -120,22 +120,22 @@ Create three environments with different Python versions, switch between them, a
 
 ```bash
 # Create environments
-hatch env create env-311 --python-version 3.11 --description "Python 3.11 environment"
-hatch env create env-312 --python-version 3.12 --description "Python 3.12 environment" 
-hatch env create env-313 --python-version 3.13 --description "Python 3.13 environment"
+hatch env create env_311 --python-version 3.11 --description "Python 3.11 environment"
+hatch env create env_312 --python-version 3.12 --description "Python 3.12 environment" 
+hatch env create env_313 --python-version 3.13 --description "Python 3.13 environment"
 
 # Switch between them
-hatch env use env-311
-hatch env current  # Should show env-311
+hatch env use env_311
+hatch env current  # Should show env_311
 
-hatch env use env-312
-hatch env current  # Should show env-312
+hatch env use env_312
+hatch env current  # Should show env_312
 
 # List to see all three
 hatch env list
 
 # Remove one
-hatch env remove env-313
+hatch env remove env_313
 ```
 
 </details>
