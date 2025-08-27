@@ -21,7 +21,7 @@ This article covers editing the `hatch_metadata.json` file that defines your pac
 
 ## Understanding the Metadata Schema
 
-The `hatch_metadata.json` file follows the schema defined in [Hatch-Schemas/packag](https://github.com/CrackingShells/Hatch-Schemas/blob/main/package/). The schemas are not well-defined yet and are subject to change. However, at the time of writing, the latest version is `v1.2.0`.
+The `hatch_metadata.json` file follows the schema defined in [Hatch-Schemas/packag](https://github.com/CrackingShells/Hatch-Schemas/blob/main/package/). The schemas are not well-defined yet and are subject to change. However, at the time of writing, the latest version is `v1.2.1`.
 
 The package's metadata are not critical to the package's functionality but are critical to its distribution (submission to the online registry) and installation by the Hatch ecosystem. For example, [dependencies](#step-3-define-dependencies) information are leveraged during the package's installation to automatically resolve and install any required dependencies. The list of [tools](#step-5-define-tools-and-citations) your package provides is used during package submission to the online registry to confirm the content of your mcp server. Except these, the metadata are not used at runtime simply helps providing information to users and transparency to the community.
 
@@ -31,7 +31,7 @@ Every package must include these fields:
 
 ```json
 {
-  "package_schema_version": "1.2.0",
+  "package_schema_version": "1.2.1",
   "name": "package_name",
   "version": "0.1.0", 
   "entry_point": "hatch_mcp_server_entry.py",
@@ -52,7 +52,7 @@ Edit the basic package information:
 
 ```json
 {
-  "package_schema_version": "1.2.0",
+  "package_schema_version": "1.2.1",
   "name": "my_awesome_package",
   "version": "1.0.0",
   "description": "An awesome MCP server package that does amazing things",
@@ -210,7 +210,7 @@ Here's a complete `hatch_metadata.json` file for our arithmetic package:
 
 ```json
 {
-  "package_schema_version": "1.2.0",
+  "package_schema_version": "1.2.1",
   "name": "arithmetic_tutorial_pkg",
   "version": "1.0.0",
   "description": "A tutorial package demonstrating arithmetic operations with MCP",
@@ -271,7 +271,7 @@ Yours might differ, but here's one example:
 
 ```json
 {
-  "package_schema_version": "1.2.0",
+  "package_schema_version": "1.2.1",
   "name": "weather_service",
   "version": "1.0.0",
   "description": "MCP server for weather information and forecasting",
