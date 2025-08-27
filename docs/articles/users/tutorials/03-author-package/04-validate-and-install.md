@@ -1,4 +1,4 @@
-# 03: Validate and Install
+# 04: Validate and Install
 
 ---
 **Concepts covered:**
@@ -17,7 +17,7 @@
 
 ## Understanding Validation
 
-This article covers validating your package and installing it into a Hatch environment.
+This article covers validating your package and installing it into a Hatch environment. Now that you have implemented functionality and configured metadata, it's time to validate and test your complete package.
 
 The `validate` CLI subcommand constructs a `HatchPackageValidator` with `version='latest'` and `allow_local_dependencies=True`, passing the environment manager's registry data into the validator. On success the command exits with code 0; on failure it exits with code 1 and prints grouped validation errors (the CLI prints category-level errors except for the special `valid` and `metadata` categories).
 
@@ -26,7 +26,7 @@ The `validate` CLI subcommand constructs a `HatchPackageValidator` with `version
 Before installing or submitting your package to the online registry, validate your package meets Hatch requirements:
 
 ```bash
-hatch validate /path/to/my-package
+hatch validate /path/to/my_package
 ```
 
 The validation process checks:
@@ -39,7 +39,7 @@ The validation process checks:
 ### Successful Validation
 
 ```txt
-Package validation SUCCESSFUL: /path/to/my-package
+Package validation SUCCESSFUL: /path/to/my_package
 ```
 
 The command will exit with status code 0 when validation succeeds.
@@ -47,7 +47,7 @@ The command will exit with status code 0 when validation succeeds.
 ### Failed Validation
 
 ```txt
-Package validation FAILED: /path/to/my-package
+Package validation FAILED: /path/to/my_package
 ```
 
 When validation fails the CLI prints a failure line and then — if detailed results are available — lists errors grouped by category. The CLI deliberately skips printing the `valid` and `metadata` categories in that grouped output and only prints categories which are invalid and include an `errors` list.
@@ -55,7 +55,7 @@ When validation fails the CLI prints a failure line and then — if detailed res
 Example failure output (category grouping):
 
 ```txt
-Package validation FAILED: C:\path\to\my-package
+Package validation FAILED: C:\path\to\my_package
 
 Entry Point Errors:
  - Missing required field 'entry_point'
@@ -75,7 +75,7 @@ The command will exit with status code 1 when validation fails.
 
 ```json
 // ❌ Invalid - contains hyphens  
-"name": "my-package"
+"name": "my_package"
 
 // ✅ Valid - uses underscores
 "name": "my_package"
@@ -113,7 +113,7 @@ Once validation passes, install the package:
 hatch env use my_dev_env
 
 # Install the package
-hatch package add /path/to/my-package
+hatch package add /path/to/my_package
 ```
 
 The installation process involves:
@@ -145,7 +145,7 @@ Output should show your package:
 
 ```txt
 Packages in environment 'my_dev_env':
-my_package (1.0.0)    Hatch compliant: true    source: file:///path/to/my-package    location: /env/path/my_package
+my_package (1.0.0)    Hatch compliant: true    source: file:///path/to/my_package    location: /env/path/my_package
 ```
 
 ## Step 5: Test Package Functionality
@@ -191,5 +191,5 @@ hatch package list
 
 </details>
 
-> Previous: [Edit Metadata](02-edit-metadata.md)  
-> Next: [Checkpoint](04-checkpoint.md)
+> Previous: [Edit Metadata](03-edit-metadata.md)
+> Next: [Checkpoint](05-checkpoint.md)
