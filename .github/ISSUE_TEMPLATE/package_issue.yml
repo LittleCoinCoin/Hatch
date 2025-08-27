@@ -1,0 +1,218 @@
+name: 📦 Package Issue
+description: Report issues with specific packages (installation, validation, or functionality)
+title: "[Package]: "
+labels: ["package-issue", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a package issue! This template is for issues with specific Hatch packages, their installation, validation, or functionality.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission checklist
+      description: Please verify these items before submitting
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate
+          required: true
+        - label: I have tried refreshing the registry with `--refresh-registry` flag
+          required: true
+        - label: I have validated the package with `hatch validate <package-dir>` (for local packages)
+          required: true
+
+  - type: dropdown
+    id: issue_type
+    attributes:
+      label: Issue Type
+      description: What type of package issue are you experiencing?
+      options:
+        - Package Installation Failure (cannot install package)
+        - Package Validation Error (package fails validation)
+        - Dependency Resolution Issue (conflicts or missing dependencies)
+        - Package Functionality Issue (package installs but doesn't work)
+        - Package Metadata Issue (incorrect or missing metadata)
+        - Package Registry Issue (package not found or incorrect version)
+        - Package Template Issue (problems with generated package templates)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: package_name
+    attributes:
+      label: Package Name
+      description: What is the name of the package?
+      placeholder: e.g., my-mcp-server, arithmetic_pkg
+    validations:
+      required: true
+
+  - type: input
+    id: package_version
+    attributes:
+      label: Package Version
+      description: What version of the package? (if applicable)
+      placeholder: e.g., 1.0.0, latest
+
+  - type: dropdown
+    id: package_source
+    attributes:
+      label: Package Source
+      description: Where is the package from?
+      options:
+        - Registry (official Hatch registry)
+        - Local Directory (local development)
+        - Custom Registry/URL
+        - Generated Template (from hatch create)
+        - Unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: package_details
+    attributes:
+      label: Package Details
+      description: |
+        Provide details about the package
+      placeholder: |
+        - Package source path/URL:
+        - Package description:
+        - Package dependencies (if known):
+        - Package type: (MCP server, utility, etc.)
+      render: text
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Information
+      description: Please provide your system and environment details
+      placeholder: |
+        - OS: (e.g., Ubuntu 22.04, macOS 14.1, Windows 11)
+        - Hatch version: (run `pip show hatch`)
+        - Python version:
+        - Target environment: (run `hatch env current`)
+        - Environment details: (run `hatch env python info --detailed`)
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: command_run
+    attributes:
+      label: Command Executed
+      description: What exact command did you run?
+      placeholder: |
+        Paste the exact command that caused the issue:
+        hatch package add my-package --env my-env --version 1.0.0
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: error_output
+    attributes:
+      label: Error Output
+      description: What error message or unexpected output did you receive?
+      placeholder: |
+        Paste the complete error output here.
+        Include the full command output and any error messages.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: package_metadata
+    attributes:
+      label: Package Metadata
+      description: |
+        If this is a local package or validation issue, please provide the package metadata
+      placeholder: |
+        Content of hatch_metadata.json:
+        ```json
+        {
+          "name": "...",
+          "version": "...",
+          "description": "...",
+          ...
+        }
+        ```
+        
+        For validation issues, also include the validation output:
+        hatch validate <package-dir>
+      render: markdown
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependency Information
+      description: |
+        If this is a dependency-related issue, provide dependency details
+      placeholder: |
+        - Required dependencies:
+        - Conflicting dependencies:
+        - Dependency resolution output:
+        - Python package requirements:
+      render: text
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen
+      placeholder: |
+        Describe what should happen:
+        - Package should install successfully
+        - Package should validate without errors
+        - Dependencies should resolve correctly
+        - etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened
+      placeholder: Describe what actually happened, including any error messages or unexpected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: registry_info
+    attributes:
+      label: Registry Information
+      description: |
+        If this is a registry package, provide registry details
+      placeholder: |
+        Run these commands and paste output:
+        - hatch package add <package-name> --refresh-registry
+        - Registry cache location: ~/.hatch/cache/
+        - Package search results (if applicable)
+      render: text
+
+  - type: textarea
+    id: workarounds
+    attributes:
+      label: Workarounds Tried
+      description: What have you tried to resolve this issue?
+      placeholder: |
+        List any workarounds or troubleshooting steps you've tried:
+        - Clearing package cache
+        - Using different package versions
+        - Manual dependency installation
+        - Recreating environment
+        - etc.
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other context about the problem
+      placeholder: |
+        Include any additional information:
+        - Package works in other environments
+        - Similar packages that work correctly
+        - Network connectivity issues
+        - Custom package modifications
+        - Related error patterns

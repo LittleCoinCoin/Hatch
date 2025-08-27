@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 Documentation
+    url: https://crackingshells.github.io/Hatch/
+    about: Check the official documentation for guides, tutorials, and API reference
+  - name: 💬 Discussions
+    url: https://github.com/CrackingShells/Hatch/discussions
+    about: Ask questions, share ideas, or discuss features with the community
+  - name: 🔗 Related Projects
+    url: https://github.com/CrackingShells
+    about: Issues with Hatchling, schemas, validator, or registry should be reported in their respective repositories
+  - name: 🛠️ Troubleshooting Guide
+    url: https://github.com/CrackingShells/Hatch/blob/main/docs/articles/users/Troubleshooting/ReportIssues.md
+    about: Follow the troubleshooting guide to collect diagnostic information before reporting issues

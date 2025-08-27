@@ -1,0 +1,187 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior in Hatch package manager
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please follow the [troubleshooting guide](https://github.com/CrackingShells/Hatch/blob/main/docs/articles/users/Troubleshooting/ReportIssues.md) to collect diagnostic information before submitting.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission checklist
+      description: Please verify these items before submitting
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate
+          required: true
+        - label: I have followed the [troubleshooting guide](https://github.com/CrackingShells/Hatch/blob/main/docs/articles/users/Troubleshooting/ReportIssues.md) and collected diagnostic information
+          required: true
+        - label: I can reproduce this issue consistently
+          required: true
+
+  - type: dropdown
+    id: bug_category
+    attributes:
+      label: Bug Category
+      description: What type of issue are you experiencing?
+      options:
+        - Package Management (installation, removal, dependency resolution)
+        - Environment Management (creation, removal, switching environments)
+        - Registry Issues (connectivity, package discovery, cache problems)
+        - CLI Issues (command parsing, argument validation, output formatting)
+        - Template Generation (package creation, metadata generation)
+        - Installation Issues (Python, system, Docker, Hatch package installers)
+        - Performance Issues (slow operations, memory usage, large environments)
+        - Validation Issues (package validation, schema problems)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Information
+      description: Please provide your system environment details
+      placeholder: |
+        - OS: (e.g., Ubuntu 22.04, macOS 14.1, Windows 11)
+        - Hatch version: (run `pip show hatch`)
+        - Python version: 
+        - Package manager: (conda/mamba version if applicable)
+        - Current environment: (run `hatch env current`)
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: command_run
+    attributes:
+      label: Command Executed
+      description: What exact command did you run?
+      placeholder: |
+        Paste the exact command that caused the issue:
+        hatch package add my-package --env my-env
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: Describe what happened and what you expected to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the behavior
+      placeholder: |
+        1. Create environment with 'hatch env create test-env'
+        2. Run command 'hatch package add ...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen
+      placeholder: A clear description of what you expected to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened, including the complete error output
+      placeholder: |
+        Paste the complete error output here.
+        Include the full command output and any error messages.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostic Information
+      description: |
+        Please run the diagnostic commands from the troubleshooting guide and paste the output:
+      placeholder: |
+        Run these commands and paste the output:
+        
+        hatch env list
+        hatch env current  
+        hatch package list
+        pip show hatch
+        
+        For environment-specific issues:
+        hatch env python info --hatch_env <env-name> --detailed
+        
+        For registry issues:
+        hatch package add <package-name> --refresh-registry
+        
+        Cache information:
+        ls -la ~/.hatch/cache/packages (Linux/macOS)
+        Get-ChildItem -Path $env:USERPROFILE\.hatch\cache (Windows PowerShell)
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: package_info
+    attributes:
+      label: Package Information
+      description: |
+        If the issue involves a specific package, provide package details:
+      placeholder: |
+        - Package name and version:
+        - Package source: (local path, registry, URL)
+        - Package metadata: (content of hatch_metadata.json if relevant)
+        - Dependencies: (if dependency-related issue)
+      render: text
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log Files
+      description: |
+        Please attach or paste relevant log files. For large logs, attach as files rather than pasting.
+      placeholder: |
+        Include any relevant log files:
+        - Command output with full error messages
+        - Installation logs
+        - Environment creation logs
+      render: text
+
+  - type: textarea
+    id: workarounds
+    attributes:
+      label: Workarounds Tried
+      description: What have you tried to resolve this issue?
+      placeholder: |
+        List any workarounds or troubleshooting steps you've tried:
+        - Clearing cache
+        - Recreating environment
+        - Using different package versions
+        - etc.
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other context about the problem
+      placeholder: |
+        Include any additional information that might be helpful:
+        - Network connectivity issues
+        - Disk space constraints
+        - Custom configurations
+        - Related issues or patterns
