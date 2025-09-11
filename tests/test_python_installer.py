@@ -6,6 +6,9 @@ import sys
 from pathlib import Path
 from unittest import mock
 
+# Import wobble decorators for test categorization
+from wobble.decorators import regression_test, integration_test
+
 from hatch.installers.python_installer import PythonInstaller
 from hatch.installers.installation_context import InstallationContext, InstallationStatus
 from hatch.installers.installer_base import InstallationError
@@ -44,21 +47,25 @@ class TestPythonInstaller(unittest.TestCase):
         """Clean up the temporary directory after each test."""
         shutil.rmtree(self.temp_dir)
 
+    @regression_test
     def test_validate_dependency_valid(self):
         """Test validate_dependency returns True for valid dependency dict."""
         dep = {"name": "requests", "version_constraint": ">=2.0.0"}
         self.assertTrue(self.installer.validate_dependency(dep))
 
+    @regression_test
     def test_validate_dependency_invalid_missing_fields(self):
         """Test validate_dependency returns False if required fields are missing."""
         dep = {"name": "requests"}
         self.assertFalse(self.installer.validate_dependency(dep))
 
+    @regression_test
     def test_validate_dependency_invalid_package_manager(self):
         """Test validate_dependency returns False for unsupported package manager."""
         dep = {"name": "requests", "version_constraint": ">=2.0.0", "package_manager": "unknown"}
         self.assertFalse(self.installer.validate_dependency(dep))
 
+    @regression_test
     def test_can_install_python_type(self):
         """Test can_install returns True for type 'python'."""
         dep = {"type": self.installer.installer_type}
@@ -147,6 +154,7 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         """Clean up the temporary directory after each test."""
         shutil.rmtree(self.temp_dir)
 
+    @integration_test(scope="component")
     def test_install_actual_package_success(self):
         """Test actual installation of a real Python package without mocking.
         
@@ -173,9 +181,10 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
         self.assertIn("wheel", result.dependency_name)
 
+    @integration_test(scope="component")
     def test_install_package_with_version_constraint(self):
         """Test installation with specific version constraint.
-        
+
         Validates that version constraints are properly passed to pip
         and that the installation succeeds with real package resolution.
         """
