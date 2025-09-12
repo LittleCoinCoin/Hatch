@@ -8,8 +8,7 @@ import datetime
 import os
 from pathlib import Path
 
-# Add parent directory to path for direct testing
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Import path management removed - using test_data_utils for test dependencies
 
 from hatch.registry_retriever import RegistryRetriever
 
@@ -19,7 +18,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("hatch.registry_tests")
-
 
 class RegistryRetrieverTests(unittest.TestCase):
     """Tests for Registry Retriever functionality."""
@@ -46,7 +44,6 @@ class RegistryRetrieverTests(unittest.TestCase):
         """Clean up test environment after each test."""
         # Remove temporary directory
         shutil.rmtree(self.temp_dir)
-    
     def test_registry_init(self):
         """Test initialization of registry retriever."""
         # Test initialization in online mode (primary test focus)
@@ -119,7 +116,6 @@ class RegistryRetrieverTests(unittest.TestCase):
         self.assertIsNotNone(registry_data4)
         self.assertIn("repositories", registry_data4)
         self.assertIn("last_updated", registry_data4)
-    
     def test_online_mode(self):
         """Test registry retriever in online mode."""
         # Initialize in online mode

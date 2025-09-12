@@ -7,8 +7,7 @@ import json
 import time
 from pathlib import Path
 
-# Add parent directory to path for direct testing
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Import path management removed - using test_data_utils for test dependencies
 
 from hatch.environment_manager import HatchEnvironmentManager
 from hatch.package_loader import HatchPackageLoader, PackageLoaderError
@@ -21,7 +20,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("hatch.package_loader_tests")
-
 
 class OnlinePackageLoaderTests(unittest.TestCase):
     """Tests for package downloading and caching functionality using online mode."""
@@ -59,6 +57,7 @@ class OnlinePackageLoaderTests(unittest.TestCase):
         # Remove temporary directory
         shutil.rmtree(self.temp_dir)
     
+    @slow_test
     def test_download_package_online(self):
         """Test downloading a package from online registry."""
         # Use base_pkg_1 for testing since it's mentioned as a reliable test package
@@ -101,6 +100,7 @@ class OnlinePackageLoaderTests(unittest.TestCase):
     #         except Exception as e:
     #             logger.warning(f"Couldn't download {package_name}@{version}: {e}")
     
+    @slow_test
     def test_install_and_caching(self):
         """Test installing and caching a package."""
         package_name = "base_pkg_1"
@@ -191,7 +191,6 @@ class OnlinePackageLoaderTests(unittest.TestCase):
 
         second_env_path = self.env_manager.get_environment_path(second_env)
         self.assertTrue((second_env_path / package_name).exists(), f"Package not found at the expected path: {second_env_path / package_name}")
-
 
 if __name__ == "__main__":
     unittest.main()

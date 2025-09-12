@@ -7,8 +7,7 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-# Add parent directory to path for direct testing
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Import path management removed - using test_data_utils for test dependencies
 
 from hatch.environment_manager import HatchEnvironmentManager
 from hatch.installers.docker_installer import DOCKER_DAEMON_AVAILABLE
@@ -19,7 +18,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("hatch.environment_tests")
-
 
 class PackageEnvironmentTests(unittest.TestCase):
     """Tests for the package environment management functionality."""
@@ -134,7 +132,6 @@ class PackageEnvironmentTests(unittest.TestCase):
         """Clean up test environment after each test."""
         # Remove temporary directory
         shutil.rmtree(self.temp_dir)
-    
     def test_create_environment(self):
         """Test creating an environment."""
         result = self.env_manager.create_environment("test_env", "Test environment")
@@ -832,7 +829,6 @@ class PackageEnvironmentTests(unittest.TestCase):
             self.env_manager.python_env_manager.create_python_environment = original_create
             self.env_manager.python_env_manager.get_environment_info = original_get_info
             self.env_manager._install_hatch_mcp_server = original_install
-
 
 if __name__ == "__main__":
     unittest.main()
