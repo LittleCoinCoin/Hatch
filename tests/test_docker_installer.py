@@ -11,6 +11,8 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock, Mock
 from typing import Dict, Any
 
+from wobble.decorators import regression_test, integration_test, slow_test
+
 from hatch.installers.docker_installer import DockerInstaller, DOCKER_AVAILABLE, DOCKER_DAEMON_AVAILABLE
 from hatch.installers.installer_base import InstallationError
 from hatch.installers.installation_context import InstallationContext, InstallationResult, InstallationStatus
@@ -62,6 +64,7 @@ class TestDockerInstaller(unittest.TestCase):
         """Clean up test fixtures."""
         shutil.rmtree(self.temp_dir)
 
+    @regression_test
     def test_installer_type(self):
         """Test installer type property."""
         self.assertEqual(
@@ -69,6 +72,7 @@ class TestDockerInstaller(unittest.TestCase):
             f"Installer type mismatch: expected 'docker', got '{self.installer.installer_type}'"
         )
 
+    @regression_test
     def test_supported_schemes(self):
         """Test supported schemes property."""
         self.assertEqual(
@@ -76,6 +80,7 @@ class TestDockerInstaller(unittest.TestCase):
             f"Supported schemes mismatch: expected ['dockerhub'], got {self.installer.supported_schemes}"
         )
 
+    @regression_test
     def test_can_install_valid_dependency(self):
         """Test can_install with valid Docker dependency."""
         dependency = {
@@ -90,6 +95,7 @@ class TestDockerInstaller(unittest.TestCase):
                 f"can_install should return True for valid dependency: {dependency}"
             )
 
+    @regression_test
     def test_can_install_wrong_type(self):
         """Test can_install with wrong dependency type."""
         dependency = {
@@ -102,6 +108,7 @@ class TestDockerInstaller(unittest.TestCase):
             f"can_install should return False for non-docker dependency: {dependency}"
         )
 
+    @integration_test
     @unittest.skipUnless(DOCKER_AVAILABLE and DOCKER_DAEMON_AVAILABLE, f"Docker library not available or Docker daemon not available: library={DOCKER_AVAILABLE}, daemon={DOCKER_DAEMON_AVAILABLE}")
     def test_can_install_docker_unavailable(self):
         """Test can_install when Docker daemon is unavailable."""
@@ -116,6 +123,7 @@ class TestDockerInstaller(unittest.TestCase):
                 f"can_install should return False when Docker is unavailable for dependency: {dependency}"
             )
 
+    @regression_test
     def test_validate_dependency_valid(self):
         """Test validate_dependency with valid dependency."""
         dependency = {
@@ -129,6 +137,7 @@ class TestDockerInstaller(unittest.TestCase):
             f"validate_dependency should return True for valid dependency: {dependency}"
         )
 
+    @regression_test
     def test_validate_dependency_missing_name(self):
         """Test validate_dependency with missing name field."""
         dependency = {
@@ -140,6 +149,7 @@ class TestDockerInstaller(unittest.TestCase):
             f"validate_dependency should return False when 'name' is missing: {dependency}"
         )
 
+    @regression_test
     def test_validate_dependency_missing_version_constraint(self):
         """Test validate_dependency with missing version_constraint field."""
         dependency = {
@@ -151,6 +161,7 @@ class TestDockerInstaller(unittest.TestCase):
             f"validate_dependency should return False when 'version_constraint' is missing: {dependency}"
         )
 
+    @regression_test
     def test_validate_dependency_invalid_type(self):
         """Test validate_dependency with invalid type."""
         dependency = {
@@ -163,6 +174,7 @@ class TestDockerInstaller(unittest.TestCase):
             f"validate_dependency should return False for invalid type: {dependency}"
         )
 
+    @regression_test
     def test_validate_dependency_invalid_registry(self):
         """Test validate_dependency with unsupported registry."""
         dependency = {
@@ -176,6 +188,7 @@ class TestDockerInstaller(unittest.TestCase):
             f"validate_dependency should return False for unsupported registry: {dependency}"
         )
 
+    @regression_test
     def test_validate_dependency_invalid_version_constraint(self):
         """Test validate_dependency with invalid version constraint."""
         dependency = {
@@ -188,6 +201,7 @@ class TestDockerInstaller(unittest.TestCase):
             f"validate_dependency should return False for invalid version_constraint: {dependency}"
         )
 
+    @regression_test
     def test_version_constraint_validation(self):
         """Test various version constraint formats."""
         valid_constraints = [
@@ -207,6 +221,7 @@ class TestDockerInstaller(unittest.TestCase):
                     f"_validate_version_constraint should return True for valid constraint: '{constraint}'"
                 )
 
+    @regression_test
     def test_resolve_docker_tag(self):
         """Test Docker tag resolution from version constraints."""
         test_cases = [
@@ -225,6 +240,7 @@ class TestDockerInstaller(unittest.TestCase):
                     f"_resolve_docker_tag('{constraint}') returned '{result}', expected '{expected}'"
                 )
 
+    @regression_test
     def test_install_simulation_mode(self):
         """Test installation in simulation mode."""
         dependency = {
@@ -251,6 +267,7 @@ class TestDockerInstaller(unittest.TestCase):
             f"Simulation install should call progress_callback twice (start and completion), got {len(progress_calls)} calls: {progress_calls}"
         )
 
+    @regression_test
     @unittest.skipUnless(DOCKER_AVAILABLE and DOCKER_DAEMON_AVAILABLE, f"Docker library not available or Docker daemon not available: library={DOCKER_AVAILABLE}, daemon={DOCKER_DAEMON_AVAILABLE}")
     @patch('hatch.installers.docker_installer.docker')
     def test_install_success(self, mock_docker):
@@ -279,6 +296,7 @@ class TestDockerInstaller(unittest.TestCase):
             f"Install should call progress_callback at least once, got {len(progress_calls)} calls: {progress_calls}"
         )
 
+    @regression_test
     @unittest.skipUnless(DOCKER_AVAILABLE and DOCKER_DAEMON_AVAILABLE, f"Docker library not available or Docker daemon not available: library={DOCKER_AVAILABLE}, daemon={DOCKER_DAEMON_AVAILABLE}")
     @patch('hatch.installers.docker_installer.docker')
     def test_install_failure(self, mock_docker):
@@ -295,6 +313,7 @@ class TestDockerInstaller(unittest.TestCase):
         with self.assertRaises(InstallationError, msg=f"Install should raise InstallationError on failure for dependency: {dependency}"):
             self.installer.install(dependency, self.context)
 
+    @regression_test
     def test_install_invalid_dependency(self):
         """Test installation with invalid dependency."""
         dependency = {
@@ -305,6 +324,7 @@ class TestDockerInstaller(unittest.TestCase):
         with self.assertRaises(InstallationError, msg=f"Install should raise InstallationError for invalid dependency: {dependency}"):
             self.installer.install(dependency, self.context)
 
+    @regression_test
     @unittest.skipUnless(DOCKER_AVAILABLE and DOCKER_DAEMON_AVAILABLE, f"Docker library not available or Docker daemon not available: library={DOCKER_AVAILABLE}, daemon={DOCKER_DAEMON_AVAILABLE}")
     @patch('hatch.installers.docker_installer.docker')
     def test_uninstall_success(self, mock_docker):
@@ -327,6 +347,7 @@ class TestDockerInstaller(unittest.TestCase):
         )
         mock_client.images.remove.assert_called_once_with("nginx:1.25.0", force=False)
 
+    @regression_test
     def test_uninstall_simulation_mode(self):
         """Test uninstallation in simulation mode."""
         dependency = {
@@ -346,6 +367,7 @@ class TestDockerInstaller(unittest.TestCase):
             f"Simulation uninstall message should mention 'Simulated removal', got: {result.metadata["message"]}"
         )
 
+    @regression_test
     def test_get_installation_info_docker_unavailable(self):
         """Test get_installation_info when Docker is unavailable."""
         dependency = {
@@ -372,6 +394,7 @@ class TestDockerInstaller(unittest.TestCase):
                 f"get_installation_info: can_install should be False, got {info['can_install']}"
             )
 
+    @regression_test
     @unittest.skipUnless(DOCKER_AVAILABLE and DOCKER_DAEMON_AVAILABLE, f"Docker library not available or Docker daemon not available: library={DOCKER_AVAILABLE}, daemon={DOCKER_DAEMON_AVAILABLE}")
     @patch('hatch.installers.docker_installer.docker')
     def test_get_installation_info_image_installed(self, mock_docker):
@@ -418,13 +441,17 @@ class TestDockerInstallerIntegration(unittest.TestCase):
         if hasattr(self, 'temp_dir'):
             shutil.rmtree(self.temp_dir)
 
+    @integration_test
+    @slow_test
     def test_docker_daemon_availability(self):
         """Test Docker daemon availability detection."""
         self.assertTrue(self.installer._is_docker_available())
 
+    @integration_test
+    @slow_test
     def test_install_and_uninstall_small_image(self):
         """Test installing and uninstalling a small Docker image.
-        
+
         This test uses the alpine image which is very small (~5MB) to minimize
         download time and resource usage in CI environments.
         """
@@ -461,9 +488,11 @@ class TestDockerInstallerIntegration(unittest.TestCase):
             else:
                 raise e
 
+    @integration_test
+    @slow_test
     def test_docker_dep_pkg_integration(self):
         """Test integration with docker_dep_pkg dummy package.
-        
+
         This test validates the installer works with the real dependency format
         from the Hatching-Dev docker_dep_pkg.
         """
