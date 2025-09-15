@@ -7,6 +7,8 @@ import json
 import time
 from pathlib import Path
 
+from wobble.decorators import regression_test, integration_test, slow_test
+
 # Import path management removed - using test_data_utils for test dependencies
 
 from hatch.environment_manager import HatchEnvironmentManager
@@ -57,13 +59,14 @@ class OnlinePackageLoaderTests(unittest.TestCase):
         # Remove temporary directory
         shutil.rmtree(self.temp_dir)
     
+    @integration_test
     @slow_test
     def test_download_package_online(self):
         """Test downloading a package from online registry."""
         # Use base_pkg_1 for testing since it's mentioned as a reliable test package
         package_name = "base_pkg_1"
         version = "==1.0.1"
-        
+
         # Add package to environment using the environment manager
         result = self.env_manager.add_package_to_environment(
             package_name,
@@ -71,7 +74,7 @@ class OnlinePackageLoaderTests(unittest.TestCase):
             auto_approve=True  # Automatically approve installation in tests
             )
         self.assertTrue(result, f"Failed to add package {package_name}@{version} to environment")
-        
+
         # Verify package is in environment
         current_env = self.env_manager.get_current_environment()
         env_data = self.env_manager.get_current_environment_data()
@@ -100,21 +103,22 @@ class OnlinePackageLoaderTests(unittest.TestCase):
     #         except Exception as e:
     #             logger.warning(f"Couldn't download {package_name}@{version}: {e}")
     
+    @integration_test
     @slow_test
     def test_install_and_caching(self):
         """Test installing and caching a package."""
         package_name = "base_pkg_1"
         version = "1.0.1"
         version_constraint = f"=={version}"
-        
+
         # Find package in registry
         package_data = find_package(self.registry_data, package_name)
         self.assertIsNotNone(package_data, f"Package {package_name} not found in registry")
-        
+
         # Create a specific test environment for this test
         test_env_name = "test_install_env"
         self.env_manager.create_environment(test_env_name, "Test environment for installation test")
-        
+
         # Add the package to the environment
         try:
             result = self.env_manager.add_package_to_environment(
@@ -143,6 +147,8 @@ class OnlinePackageLoaderTests(unittest.TestCase):
         except Exception as e:
             self.fail(f"Package installation raised exception: {e}")
     
+    @integration_test
+    @slow_test
     def test_cache_reuse(self):
         """Test that the cache is reused for multiple installs."""
         package_name = "base_pkg_1"
@@ -152,11 +158,11 @@ class OnlinePackageLoaderTests(unittest.TestCase):
         # Find package in registry
         package_data = find_package(self.registry_data, package_name)
         self.assertIsNotNone(package_data, f"Package {package_name} not found in registry")
-            
+
         # Get package URL
         package_url = get_package_release_url(package_data, version_constraint)
         self.assertIsNotNone(package_url, f"No download URL found for {package_name}@{version_constraint}")
-        
+
         # Create two test environments
         first_env = "test_cache_env1"
         second_env = "test_cache_env2"
