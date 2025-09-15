@@ -8,6 +8,8 @@ import datetime
 import os
 from pathlib import Path
 
+from wobble.decorators import regression_test, integration_test, slow_test
+
 # Import path management removed - using test_data_utils for test dependencies
 
 from hatch.registry_retriever import RegistryRetriever
@@ -44,6 +46,7 @@ class RegistryRetrieverTests(unittest.TestCase):
         """Clean up test environment after each test."""
         # Remove temporary directory
         shutil.rmtree(self.temp_dir)
+    @regression_test
     def test_registry_init(self):
         """Test initialization of registry retriever."""
         # Test initialization in online mode (primary test focus)
@@ -51,28 +54,29 @@ class RegistryRetrieverTests(unittest.TestCase):
             local_cache_dir=self.cache_dir,
             simulation_mode=False
         )
-        
+
         # Verify URL format for online mode
         self.assertTrue(online_retriever.registry_url.startswith("https://"))
         self.assertTrue("github.com" in online_retriever.registry_url)
-        
+
         # Verify cache path is set correctly
         self.assertEqual(
-            online_retriever.registry_cache_path, 
+            online_retriever.registry_cache_path,
             self.cache_dir / "registry" / "hatch_packages_registry.json"
         )
-        
+
         # Also test initialization with local file in simulation mode (for reference)
         sim_retriever = RegistryRetriever(
             local_cache_dir=self.cache_dir,
             simulation_mode=True,
             local_registry_cache_path=self.local_registry_path
         )
-        
+
         # Verify registry cache path is set correctly in simulation mode
         self.assertEqual(sim_retriever.registry_cache_path, self.local_registry_path)
         self.assertTrue(sim_retriever.registry_url.startswith("file://"))
-    
+
+    @integration_test
     def test_registry_cache_management(self):
         """Test registry cache management."""
         # Initialize retriever with a short TTL in online mode
@@ -80,22 +84,22 @@ class RegistryRetrieverTests(unittest.TestCase):
             cache_ttl=5,  # 5 seconds TTL
             local_cache_dir=self.cache_dir
         )
-        
+
         # Get registry data (first fetch from online)
         registry_data1 = retriever.get_registry()
         self.assertIsNotNone(registry_data1)
-        
+
         # Verify in-memory cache works (should not read from disk)
         registry_data2 = retriever.get_registry()
         self.assertIs(registry_data1, registry_data2)  # Should be the same object in memory
-        
+
         # Force refresh and verify it gets loaded again (potentially from online)
         registry_data3 = retriever.get_registry(force_refresh=True)
         self.assertIsNotNone(registry_data3)
-        
+
         # Verify the cache file was created
         self.assertTrue(retriever.registry_cache_path.exists(), "Cache file was not created")
-        
+
         # Modify the persistent timestamp to test cache invalidation
         # We need to manipulate the persistent timestamp file, not just the cache file mtime
         timestamp_file = retriever._last_fetch_time_path
@@ -116,6 +120,7 @@ class RegistryRetrieverTests(unittest.TestCase):
         self.assertIsNotNone(registry_data4)
         self.assertIn("repositories", registry_data4)
         self.assertIn("last_updated", registry_data4)
+    @integration_test
     def test_online_mode(self):
         """Test registry retriever in online mode."""
         # Initialize in online mode
@@ -123,24 +128,24 @@ class RegistryRetrieverTests(unittest.TestCase):
             local_cache_dir=self.cache_dir,
             simulation_mode=False
         )
-        
+
         # Get registry and verify it contains expected data
         registry = retriever.get_registry()
         self.assertIn("repositories", registry)
         self.assertIn("last_updated", registry)
-        
+
         # Verify registry structure
         self.assertIsInstance(registry.get("repositories"), list)
         self.assertGreater(len(registry.get("repositories", [])), 0, "Registry should contain repositories")
-        
+
         # Get registry again with force refresh (should fetch from online)
         registry2 = retriever.get_registry(force_refresh=True)
         self.assertIn("repositories", registry2)
-        
+
         # Test error handling with an existing cache
         # First ensure we have a valid cache file
         self.assertTrue(retriever.registry_cache_path.exists(), "Cache file should exist after previous calls")
-        
+
         # Create a new retriever with invalid URL but using the same cache
         bad_retriever = RegistryRetriever(
             local_cache_dir=self.cache_dir,
@@ -148,17 +153,18 @@ class RegistryRetrieverTests(unittest.TestCase):
         )
         # Mock the URL to be invalid
         bad_retriever.registry_url = "https://nonexistent.example.com/registry.json"
-        
+
         # First call should use the cache that was created by the earlier tests
         registry_data = bad_retriever.get_registry()
         self.assertIsNotNone(registry_data)
-        
+
         # Verify an attempt to force refresh with invalid URL doesn't break the test
         try:
             bad_retriever.get_registry(force_refresh=True)
         except Exception:
             pass  # Expected to fail, that's OK
     
+    @regression_test
     def test_persistent_timestamp_across_cli_invocations(self):
         """Test that persistent timestamp works across separate CLI invocations."""
         # First "CLI invocation" - create retriever and fetch registry
@@ -167,36 +173,37 @@ class RegistryRetrieverTests(unittest.TestCase):
             local_cache_dir=self.cache_dir,
             simulation_mode=False
         )
-        
+
         # Get registry (should fetch from online)
         registry1 = retriever1.get_registry()
         self.assertIsNotNone(registry1)
-        
+
         # Verify timestamp file was created
         self.assertTrue(retriever1._last_fetch_time_path.exists(), "Timestamp file should be created")
-        
+
         # Get the timestamp from the first fetch
         first_fetch_time = retriever1._last_fetch_time
         self.assertGreater(first_fetch_time, 0, "First fetch time should be set")
-        
+
         # Second "CLI invocation" - create new retriever with same cache directory
         retriever2 = RegistryRetriever(
-            cache_ttl=300,  # 5 minutes TTL  
+            cache_ttl=300,  # 5 minutes TTL
             local_cache_dir=self.cache_dir,
             simulation_mode=False
         )
-        
+
         # Verify the timestamp was loaded from disk
         self.assertGreater(retriever2._last_fetch_time, 0, "Timestamp should be loaded from disk")
-        
+
         # Get registry (should use cache since timestamp is recent)
         registry2 = retriever2.get_registry()
         self.assertIsNotNone(registry2)
-        
+
         # Verify cache was used and not a new fetch (timestamp should be same or very close)
         time_diff = abs(retriever2._last_fetch_time - first_fetch_time)
         self.assertLess(time_diff, 2.0, "Should use cached registry, not fetch new one")
-    
+
+    @regression_test
     def test_persistent_timestamp_edge_cases(self):
         """Test edge cases for persistent timestamp handling."""
         retriever = RegistryRetriever(
@@ -204,19 +211,19 @@ class RegistryRetrieverTests(unittest.TestCase):
             local_cache_dir=self.cache_dir,
             simulation_mode=False
         )
-        
+
         # Test 1: Corrupt timestamp file
         timestamp_file = retriever._last_fetch_time_path
         timestamp_file.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Write corrupt data to timestamp file
         with open(timestamp_file, 'w', encoding='utf-8') as f:
             f.write("invalid_timestamp_data")
-        
+
         # Should handle gracefully and treat as no timestamp
         retriever._load_last_fetch_time()
         self.assertEqual(retriever._last_fetch_time, 0, "Corrupt timestamp should be treated as no timestamp")
-        
+
         # Test 2: Future timestamp (clock skew scenario)
         future_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
         future_timestamp_str = future_time.isoformat().replace('+00:00', 'Z')
