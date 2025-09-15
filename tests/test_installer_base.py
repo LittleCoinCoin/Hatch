@@ -7,6 +7,8 @@ from pathlib import Path
 from unittest.mock import Mock
 from typing import Dict, Any, List
 
+from wobble.decorators import regression_test, integration_test, slow_test
+
 # Import path management removed - using test_data_utils for test dependencies
 
 from hatch.installers.installer_base import (
@@ -76,6 +78,7 @@ class BaseInstallerTests(unittest.TestCase):
         if hasattr(self, 'temp_dir') and Path(self.temp_dir).exists():
             shutil.rmtree(self.temp_dir, ignore_errors=True)
             logger.info(f"Cleaned up test environment at {self.temp_dir}")
+    @regression_test
     def test_installation_context_creation(self):
         """Test that InstallationContext can be created with required fields."""
         context = InstallationContext(
@@ -87,6 +90,7 @@ class BaseInstallerTests(unittest.TestCase):
         self.assertTrue(context.parallel_enabled, f"Expected parallel_enabled=True, got {context.parallel_enabled}")  # Default value
         self.assertEqual(context.get_config("nonexistent", "default"), "default", f"Expected default config fallback, got {context.get_config('nonexistent', 'default')}")
         logger.info("InstallationContext creation test passed")
+    @regression_test
     def test_installation_context_with_config(self):
         """Test InstallationContext with extra configuration."""
         context = InstallationContext(
@@ -97,6 +101,7 @@ class BaseInstallerTests(unittest.TestCase):
         self.assertEqual(context.get_config("custom_setting"), "value", f"Expected custom_setting='value', got {context.get_config('custom_setting')}")
         self.assertEqual(context.get_config("missing_key", "fallback"), "fallback", f"Expected fallback for missing_key, got {context.get_config('missing_key', 'fallback')}")
         logger.info("InstallationContext with config test passed")
+    @regression_test
     def test_installation_result_creation(self):
         """Test that InstallationResult can be created."""
         result = InstallationResult(
@@ -110,6 +115,7 @@ class BaseInstallerTests(unittest.TestCase):
         self.assertEqual(result.installed_path, Path("/env/test_package"), f"Expected installed_path=/env/test_package, got {result.installed_path}")
         self.assertEqual(result.installed_version, "1.0.0", f"Expected installed_version='1.0.0', got {result.installed_version}")
         logger.info("InstallationResult creation test passed")
+    @regression_test
     def test_installation_error(self):
         """Test InstallationError creation and attributes."""
         error = InstallationError(
@@ -121,6 +127,7 @@ class BaseInstallerTests(unittest.TestCase):
         self.assertEqual(error.dependency_name, "test_package", f"Expected dependency_name='test_package', got {error.dependency_name}")
         self.assertEqual(error.error_code, "DOWNLOAD_FAILED", f"Expected error_code='DOWNLOAD_FAILED', got {error.error_code}")
         logger.info("InstallationError test passed")
+    @regression_test
     def test_mock_installer_interface(self):
         """Test that MockInstaller implements the interface correctly."""
         # Test properties
@@ -132,6 +139,7 @@ class BaseInstallerTests(unittest.TestCase):
         self.assertTrue(self.installer.can_install(mock_dep), f"Expected can_install to be True for {mock_dep}")
         self.assertFalse(self.installer.can_install(non_mock_dep), f"Expected can_install to be False for {non_mock_dep}")
         logger.info("MockInstaller interface test passed")
+    @regression_test
     def test_mock_installer_install(self):
         """Test the install method of MockInstaller."""
         dependency = {
@@ -146,6 +154,7 @@ class BaseInstallerTests(unittest.TestCase):
         self.assertEqual(result.installed_path, self.env_path / "test_package", f"Expected installed_path={self.env_path / 'test_package'}, got {result.installed_path}")
         self.assertEqual(result.installed_version, "1.2.0", f"Expected installed_version='1.2.0', got {result.installed_version}")
         logger.info("MockInstaller install test passed")
+    @regression_test
     def test_mock_installer_validation(self):
         """Test dependency validation."""
         valid_dep = {
@@ -160,6 +169,7 @@ class BaseInstallerTests(unittest.TestCase):
         self.assertTrue(self.installer.validate_dependency(valid_dep), f"Expected valid dependency to pass validation: {valid_dep}")
         self.assertFalse(self.installer.validate_dependency(invalid_dep), f"Expected invalid dependency to fail validation: {invalid_dep}")
         logger.info("MockInstaller validation test passed")
+    @regression_test
     def test_mock_installer_get_installation_info(self):
         """Test getting installation information."""
         dependency = {
@@ -174,12 +184,14 @@ class BaseInstallerTests(unittest.TestCase):
         self.assertEqual(info["target_path"], str(self.env_path), f"Expected target_path={self.env_path}, got {info['target_path']}")
         self.assertTrue(info["supported"], f"Expected supported=True, got {info['supported']}")
         logger.info("MockInstaller get_installation_info test passed")
+    @regression_test
     def test_mock_installer_uninstall_not_implemented(self):
         """Test that uninstall raises NotImplementedError by default."""
         dependency = {"name": "test", "type": "mock"}
         with self.assertRaises(NotImplementedError, msg="Expected NotImplementedError for uninstall on MockInstaller"):
             self.installer.uninstall(dependency, self.context)
         logger.info("MockInstaller uninstall NotImplementedError test passed")
+    @regression_test
     def test_installation_status_enum(self):
         """Test InstallationStatus enum values."""
         self.assertEqual(InstallationStatus.PENDING.value, "pending", f"Expected PENDING='pending', got {InstallationStatus.PENDING.value}")
@@ -188,6 +200,7 @@ class BaseInstallerTests(unittest.TestCase):
         self.assertEqual(InstallationStatus.FAILED.value, "failed", f"Expected FAILED='failed', got {InstallationStatus.FAILED.value}")
         self.assertEqual(InstallationStatus.ROLLED_BACK.value, "rolled_back", f"Expected ROLLED_BACK='rolled_back', got {InstallationStatus.ROLLED_BACK.value}")
         logger.info("InstallationStatus enum test passed")
+    @regression_test
     def test_progress_callback_support(self):
         """Test that installer accepts progress callback."""
         dependency = {

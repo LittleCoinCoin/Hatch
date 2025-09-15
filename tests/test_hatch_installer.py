@@ -5,6 +5,8 @@ import logging
 from pathlib import Path
 from datetime import datetime
 
+from wobble.decorators import regression_test, integration_test, slow_test
+
 from hatch.installers.hatch_installer import HatchInstaller
 from hatch.package_loader import HatchPackageLoader
 from hatch_validator.package_validator import HatchPackageValidator
@@ -99,6 +101,7 @@ class TestHatchInstaller(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
 
+    @regression_test
     def test_installer_can_install_and_uninstall(self):
         """Test the full install and uninstall cycle for a dummy Hatch package using the installer."""
         pkg_name = "arithmetic_pkg"
@@ -128,11 +131,13 @@ class TestHatchInstaller(unittest.TestCase):
         self.assertEqual(uninstall_result.status, InstallationStatus.COMPLETED)
         self.assertFalse(installed_path.exists())
 
+    @regression_test
     def test_installer_rejects_invalid_dependency(self):
         """Test that the installer rejects dependencies missing required fields."""
         invalid_dep = {"name": "foo"}  # Missing required fields
         self.assertFalse(self.installer.validate_dependency(invalid_dep))
 
+    @regression_test
     def test_installation_error_on_missing_uri(self):
         """Test that the installer raises InstallationError if no URI is provided."""
         pkg_name = "arithmetic_pkg"
@@ -148,6 +153,7 @@ class TestHatchInstaller(unittest.TestCase):
         with self.assertRaises(Exception):
             self.installer.install(dependency, context)
 
+    @regression_test
     def test_can_install_method(self):
         """Test the can_install method for correct dependency type recognition."""
         dep = {"type": "hatch"}

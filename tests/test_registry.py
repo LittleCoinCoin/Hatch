@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 import unittest
 
+from wobble.decorators import regression_test, integration_test, slow_test
+
 # Import path management removed - using test_data_utils for test dependencies
 
 # It is mandatory to import the installer classes to ensure they are registered
@@ -19,22 +21,26 @@ from hatch.installers import installer_registry, DependencyInstaller
 
 class TestInstallerRegistry(unittest.TestCase):
     """Test suite for the installer registry."""
+    @regression_test
     def test_registered_types(self):
         """Test that all expected installer types are registered."""
         registered_types = installer_registry.get_registered_types()
         expected_types = ["hatch", "python", "system", "docker"]
         for expected_type in expected_types:
             self.assertIn(expected_type, registered_types, f"{expected_type} installer should be registered")
+    @regression_test
     def test_get_installer_instance(self):
         """Test that the registry returns a valid installer instance for each type."""
         for dep_type in ["hatch", "python", "system", "docker"]:
             installer = installer_registry.get_installer(dep_type)
             self.assertIsInstance(installer, DependencyInstaller)
             self.assertEqual(installer.installer_type, dep_type)
+    @regression_test
     def test_error_on_unknown_type(self):
         """Test that requesting an unknown type raises ValueError."""
         with self.assertRaises(ValueError):
             installer_registry.get_installer("unknown_type")
+    @regression_test
     def test_registry_repr_and_len(self):
         """Test __repr__ and __len__ methods for coverage."""
         repr_str = repr(installer_registry)

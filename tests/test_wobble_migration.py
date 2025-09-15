@@ -5,6 +5,8 @@ import unittest
 import sys
 from pathlib import Path
 
+from wobble.decorators import regression_test, integration_test, slow_test
+
 # Add parent directory to path for direct testing
 # Import path management removed - using test_data_utils for test dependencies
 
@@ -24,6 +26,7 @@ class TestWobbleMigration(unittest.TestCase):
     def tearDownClass(cls):
         """Clean up test data after testing."""
         cls.test_data_loader.cleanup()
+    @regression_test
     def test_test_data_creation(self):
         """Test that test data packages are created correctly."""
         # Verify test packages directory exists
@@ -42,6 +45,7 @@ class TestWobbleMigration(unittest.TestCase):
             # Verify metadata file exists
             metadata_file = package_dir / "hatch_metadata.json"
             self.assertTrue(metadata_file.exists(), f"Metadata file for {package_name} should exist")
+    @regression_test
     def test_wobble_decorators_import(self):
         """Test that wobble decorators can be imported successfully."""
         # This test verifies that wobble is properly installed and accessible
@@ -50,6 +54,7 @@ class TestWobbleMigration(unittest.TestCase):
         # Verify decorators are callable
         self.assertTrue(callable(regression_test))
         self.assertTrue(callable(integration_test))
+    @regression_test
     def test_package_metadata_schema_compliance(self):
         """Test that generated packages comply with Hatch schema v1.2.1."""
         import json
