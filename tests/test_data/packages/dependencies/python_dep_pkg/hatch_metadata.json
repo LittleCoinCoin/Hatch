@@ -32,6 +32,11 @@
         "name": "numpy",
         "version_constraint": ">=1.20.0",
         "package_manager": "pip"
+      },
+      {
+        "name": "requests",
+        "version_constraint": ">=2.25.0",
+        "package_manager": "pip"
       }
     ]
   }

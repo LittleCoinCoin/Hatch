@@ -550,7 +550,8 @@ class TestPythonEnvironmentManagerIntegration(unittest.TestCase):
     @slow_test
     def test_list_environments_real(self):
         """Test listing environments with real conda environments."""
-        test_envs = ["hatch_test_env_1", "hatch_test_env_2"]
+        test_envs = ["test_env_1", "test_env_2"]
+        final_names = ["hatch_test_env_1", "hatch_test_env_2"]
 
         # Clean up any existing test environments
         for env_name in test_envs:
@@ -566,11 +567,11 @@ class TestPythonEnvironmentManagerIntegration(unittest.TestCase):
         env_list = self.manager.list_environments()
 
         # Should include our test environments
-        for env_name in test_envs:
+        for env_name in final_names:
             self.assertIn(env_name, env_list, f"{env_name} not found in environment list")
 
         # Cleanup
-        for env_name in test_envs:
+        for env_name in final_names:
             self.manager.remove_python_environment(env_name)
 
     @integration_test(scope="system")
