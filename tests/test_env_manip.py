@@ -146,7 +146,9 @@ class PackageEnvironmentTests(unittest.TestCase):
         """Clean up test environment after each test."""
         # Remove temporary directory
         shutil.rmtree(self.temp_dir)
+    
     @regression_test
+    @slow_test
     def test_create_environment(self):
         """Test creating an environment."""
         result = self.env_manager.create_environment("test_env", "Test environment")
@@ -165,6 +167,7 @@ class PackageEnvironmentTests(unittest.TestCase):
         self.assertEqual(len(env_data["packages"]), 0)
 
     @regression_test
+    @slow_test
     def test_remove_environment(self):
         """Test removing an environment."""
         # First create an environment
@@ -179,6 +182,7 @@ class PackageEnvironmentTests(unittest.TestCase):
         self.assertFalse(self.env_manager.environment_exists("test_env"), "Environment still exists after removal")
     
     @regression_test
+    @slow_test
     def test_set_current_environment(self):
         """Test setting the current environment."""
         # First create an environment
@@ -193,6 +197,7 @@ class PackageEnvironmentTests(unittest.TestCase):
         self.assertEqual(current_env, "test_env", "Current environment not set correctly")
 
     @regression_test
+    @slow_test
     def test_add_local_package(self):
         """Test adding a local package to an environment."""
         # Create an environment
@@ -228,6 +233,7 @@ class PackageEnvironmentTests(unittest.TestCase):
         self.assertIn("source", pkg_data, "Package data missing source")
 
     @regression_test
+    @slow_test
     def test_add_package_with_dependencies(self):
         """Test adding a package with dependencies to an environment."""
         # Create an environment
@@ -273,6 +279,7 @@ class PackageEnvironmentTests(unittest.TestCase):
         self.assertIn("simple_dep_pkg", package_names, "Dependent package missing from environment")
     
     @regression_test
+    @slow_test
     def test_add_package_with_some_dependencies_already_present(self):
         """Test adding a package where some dependencies are already present and others are not."""
         # Create an environment
@@ -322,6 +329,7 @@ class PackageEnvironmentTests(unittest.TestCase):
             self.assertIn(pkg_name, package_names, f"Package {pkg_name} missing from environment")
     
     @regression_test
+    @slow_test
     def test_add_package_with_all_dependencies_already_present(self):
         """Test adding a package where all dependencies are already present."""
         # Create an environment
@@ -370,6 +378,7 @@ class PackageEnvironmentTests(unittest.TestCase):
             self.assertIn(pkg_name, package_names, f"Package {pkg_name} missing from environment")
     
     @regression_test
+    @slow_test
     def test_add_package_with_version_constraint_satisfaction(self):
         """Test adding a package with version constraints where dependencies are satisfied."""
         # Create an environment
@@ -519,6 +528,7 @@ class PackageEnvironmentTests(unittest.TestCase):
         self.assertIn("docker_dep_pkg", package_names, "Docker dependency package missing from environment")
 
     @regression_test
+    @slow_test
     def test_create_environment_with_mcp_server_default(self):
         """Test creating environment with default MCP server installation."""
         # Mock the MCP server installation to avoid actual network calls
@@ -579,6 +589,7 @@ class PackageEnvironmentTests(unittest.TestCase):
             self.env_manager._install_hatch_mcp_server = original_install
 
     @regression_test
+    @slow_test
     def test_create_environment_with_mcp_server_opt_out(self):
         """Test creating environment with MCP server installation opted out."""
         # Mock the MCP server installation to track calls
@@ -623,6 +634,7 @@ class PackageEnvironmentTests(unittest.TestCase):
             self.env_manager._install_hatch_mcp_server = original_install
 
     @regression_test
+    @slow_test
     def test_create_environment_with_mcp_server_custom_tag(self):
         """Test creating environment with custom MCP server tag."""
         # Mock the MCP server installation to avoid actual network calls
@@ -682,6 +694,7 @@ class PackageEnvironmentTests(unittest.TestCase):
             self.env_manager._install_hatch_mcp_server = original_install
 
     @regression_test
+    @slow_test
     def test_create_environment_no_python_no_mcp_server(self):
         """Test creating environment without Python support should not install MCP server."""
         # Mock the MCP server installation to track calls
@@ -709,6 +722,7 @@ class PackageEnvironmentTests(unittest.TestCase):
             self.env_manager._install_hatch_mcp_server = original_install
 
     @regression_test
+    @slow_test
     def test_install_mcp_server_existing_environment(self):
         """Test installing MCP server in an existing environment."""
         # Create environment first without Python environment
@@ -770,6 +784,7 @@ class PackageEnvironmentTests(unittest.TestCase):
             self.env_manager._install_hatch_mcp_server = original_install
 
     @regression_test
+    @slow_test
     def test_create_python_environment_only_with_mcp_wrapper(self):
         """Test creating Python environment only with MCP wrapper support."""
         # First create a Hatch environment without Python

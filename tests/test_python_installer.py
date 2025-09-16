@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 # Import wobble decorators for test categorization
-from wobble.decorators import regression_test, integration_test
+from wobble.decorators import regression_test, integration_test, slow_test
 
 from hatch.installers.python_installer import PythonInstaller
 from hatch.installers.installation_context import InstallationContext, InstallationStatus
@@ -162,6 +162,7 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         shutil.rmtree(self.temp_dir)
 
     @integration_test(scope="component")
+    @slow_test
     def test_install_actual_package_success(self):
         """Test actual installation of a real Python package without mocking.
         
@@ -189,6 +190,7 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         self.assertIn("wheel", result.dependency_name)
 
     @integration_test(scope="component")
+    @slow_test
     def test_install_package_with_version_constraint(self):
         """Test installation with specific version constraint.
 
@@ -214,6 +216,7 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         self.assertIsNotNone(result.metadata)
 
     @integration_test(scope="component")
+    @slow_test
     def test_install_package_with_extras(self):
         """Test installation of a package with extras specification.
         
@@ -237,6 +240,7 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
 
     @integration_test(scope="component")
+    @slow_test
     def test_uninstall_actual_package(self):
         """Test actual uninstallation of a Python package.
         
@@ -265,6 +269,7 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         self.assertEqual(uninstall_result.status, InstallationStatus.COMPLETED)
 
     @integration_test(scope="component")
+    @slow_test
     def test_install_nonexistent_package_failure(self):
         """Test that installation fails appropriately for non-existent packages.
         
@@ -292,6 +297,7 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         self.assertIn("this-package-definitely-does-not-exist-12345", error_msg)
 
     @integration_test(scope="component")
+    @slow_test
     def test_get_installation_info_for_installed_package(self):
         """Test retrieval of installation info for an actually installed package.
         
