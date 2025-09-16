@@ -71,11 +71,13 @@ class TestPythonInstaller(unittest.TestCase):
         dep = {"type": self.installer.installer_type}
         self.assertTrue(self.installer.can_install(dep))
 
+    @regression_test
     def test_can_install_wrong_type(self):
         """Test can_install returns False for non-python type."""
         dep = {"type": "hatch"}
         self.assertFalse(self.installer.can_install(dep))
 
+    @regression_test
     @mock.patch("hatch.installers.python_installer.subprocess.Popen", side_effect=Exception("fail"))
     def test_run_pip_subprocess_exception(self, mock_popen):
         """Test _run_pip_subprocess raises InstallationError on exception."""
@@ -83,6 +85,7 @@ class TestPythonInstaller(unittest.TestCase):
         with self.assertRaises(InstallationError):
             self.installer._run_pip_subprocess(cmd)
 
+    @regression_test
     def test_install_simulation_mode(self):
         """Test install returns COMPLETED immediately in simulation mode."""
         dep = {"name": "requests", "version_constraint": ">=2.0.0"}
@@ -90,6 +93,7 @@ class TestPythonInstaller(unittest.TestCase):
         result = self.installer.install(dep, context)
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
 
+    @regression_test
     @mock.patch.object(PythonInstaller, "_run_pip_subprocess", return_value=0)
     def test_install_success(self, mock_run):
         """Test install returns COMPLETED on successful pip install."""
@@ -98,6 +102,7 @@ class TestPythonInstaller(unittest.TestCase):
         result = self.installer.install(dep, context)
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
 
+    @regression_test
     @mock.patch.object(PythonInstaller, "_run_pip_subprocess", return_value=1)
     def test_install_failure(self, mock_run):
         """Test install raises InstallationError on pip failure."""
@@ -106,6 +111,7 @@ class TestPythonInstaller(unittest.TestCase):
         with self.assertRaises(InstallationError):
             self.installer.install(dep, context)
 
+    @regression_test
     @mock.patch.object(PythonInstaller, "_run_pip_subprocess", return_value=0)
     def test_uninstall_success(self, mock_run):
         """Test uninstall returns COMPLETED on successful pip uninstall."""
@@ -114,6 +120,7 @@ class TestPythonInstaller(unittest.TestCase):
         result = self.installer.uninstall(dep, context)
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
 
+    @regression_test
     @mock.patch.object(PythonInstaller, "_run_pip_subprocess", return_value=1)
     def test_uninstall_failure(self, mock_run):
         """Test uninstall raises InstallationError on pip uninstall failure."""
@@ -206,6 +213,7 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         # Verify the dependency was processed correctly
         self.assertIsNotNone(result.metadata)
 
+    @integration_test(scope="component")
     def test_install_package_with_extras(self):
         """Test installation of a package with extras specification.
         
@@ -228,6 +236,7 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         result = self.installer.install(dep, context)
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
 
+    @integration_test(scope="component")
     def test_uninstall_actual_package(self):
         """Test actual uninstallation of a Python package.
         
@@ -255,6 +264,7 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         uninstall_result = self.installer.uninstall(dep, context)
         self.assertEqual(uninstall_result.status, InstallationStatus.COMPLETED)
 
+    @integration_test(scope="component")
     def test_install_nonexistent_package_failure(self):
         """Test that installation fails appropriately for non-existent packages.
         
@@ -281,6 +291,7 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         error_msg = str(cm.exception)
         self.assertIn("this-package-definitely-does-not-exist-12345", error_msg)
 
+    @integration_test(scope="component")
     def test_get_installation_info_for_installed_package(self):
         """Test retrieval of installation info for an actually installed package.
         
