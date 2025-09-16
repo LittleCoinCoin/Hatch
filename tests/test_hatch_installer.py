@@ -43,13 +43,25 @@ class TestHatchInstaller(unittest.TestCase):
                 }
             ]
         }
+        # Use self-contained test packages instead of external Hatching-Dev
+        from test_data_utils import TestDataLoader
+        test_loader = TestDataLoader()
+
         pkg_names = [
-            "arithmetic_pkg", "base_pkg_1", "base_pkg_2", "python_dep_pkg",
-            "circular_dep_pkg_1", "circular_dep_pkg_2", "complex_dep_pkg",
-            "simple_dep_pkg", "missing_dep_pkg", "version_dep_pkg"
+            "base_pkg", "utility_pkg", "python_dep_pkg",
+            "circular_dep_pkg", "circular_dep_pkg_b", "complex_dep_pkg",
+            "simple_dep_pkg", "invalid_dep_pkg", "version_conflict_pkg"
         ]
         for pkg_name in pkg_names:
-            pkg_path = hatch_dev_path / pkg_name
+            # Map to self-contained package locations
+            if pkg_name in ["base_pkg", "utility_pkg"]:
+                pkg_path = test_loader.packages_dir / "basic" / pkg_name
+            elif pkg_name in ["complex_dep_pkg", "simple_dep_pkg", "python_dep_pkg"]:
+                pkg_path = test_loader.packages_dir / "dependencies" / pkg_name
+            elif pkg_name in ["circular_dep_pkg", "circular_dep_pkg_b", "invalid_dep_pkg", "version_conflict_pkg"]:
+                pkg_path = test_loader.packages_dir / "error_scenarios" / pkg_name
+            else:
+                pkg_path = test_loader.packages_dir / pkg_name
             if pkg_path.exists():
                 metadata_path = pkg_path / "hatch_metadata.json"
                 if metadata_path.exists():
@@ -104,8 +116,10 @@ class TestHatchInstaller(unittest.TestCase):
     @regression_test
     def test_installer_can_install_and_uninstall(self):
         """Test the full install and uninstall cycle for a dummy Hatch package using the installer."""
-        pkg_name = "arithmetic_pkg"
-        pkg_path = self.hatch_dev_path / pkg_name
+        pkg_name = "base_pkg"
+        from test_data_utils import TestDataLoader
+        test_loader = TestDataLoader()
+        pkg_path = test_loader.packages_dir / "basic" / pkg_name
         metadata_path = pkg_path / "hatch_metadata.json"
         with open(metadata_path, 'r') as f:
             import json
@@ -140,7 +154,7 @@ class TestHatchInstaller(unittest.TestCase):
     @regression_test
     def test_installation_error_on_missing_uri(self):
         """Test that the installer raises InstallationError if no URI is provided."""
-        pkg_name = "arithmetic_pkg"
+        pkg_name = "base_pkg"
         dependency = {
             "name": pkg_name,
             "version_constraint": "1.0.0",
