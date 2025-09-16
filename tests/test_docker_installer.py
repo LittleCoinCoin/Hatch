@@ -108,7 +108,7 @@ class TestDockerInstaller(unittest.TestCase):
             f"can_install should return False for non-docker dependency: {dependency}"
         )
 
-    @integration_test
+    @integration_test(scope="service")
     @unittest.skipUnless(DOCKER_AVAILABLE and DOCKER_DAEMON_AVAILABLE, f"Docker library not available or Docker daemon not available: library={DOCKER_AVAILABLE}, daemon={DOCKER_DAEMON_AVAILABLE}")
     def test_can_install_docker_unavailable(self):
         """Test can_install when Docker daemon is unavailable."""
@@ -441,13 +441,13 @@ class TestDockerInstallerIntegration(unittest.TestCase):
         if hasattr(self, 'temp_dir'):
             shutil.rmtree(self.temp_dir)
 
-    @integration_test
+    @integration_test(scope="service")
     @slow_test
     def test_docker_daemon_availability(self):
         """Test Docker daemon availability detection."""
         self.assertTrue(self.installer._is_docker_available())
 
-    @integration_test
+    @integration_test(scope="service")
     @slow_test
     def test_install_and_uninstall_small_image(self):
         """Test installing and uninstalling a small Docker image.
@@ -488,7 +488,7 @@ class TestDockerInstallerIntegration(unittest.TestCase):
             else:
                 raise e
 
-    @integration_test
+    @integration_test(scope="service")
     @slow_test
     def test_docker_dep_pkg_integration(self):
         """Test integration with docker_dep_pkg dummy package.

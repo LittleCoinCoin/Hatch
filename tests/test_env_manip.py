@@ -388,7 +388,7 @@ class PackageEnvironmentTests(unittest.TestCase):
         self.assertIn("base_pkg_1", package_names, "Base package missing from environment")
         self.assertIn("simple_dep_pkg", package_names, "Dependent package missing from environment")
 
-    @integration_test
+    @integration_test(scope="component")
     @slow_test
     def test_add_package_with_mixed_dependency_types(self):
         """Test adding a package with mixed hatch and python dependencies."""
@@ -445,7 +445,7 @@ class PackageEnvironmentTests(unittest.TestCase):
         package_names = [pkg["name"] for pkg in packages]
         self.assertIn("requests", package_names, f"Expected 'requests' package not found in Python environment: {packages}")
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
     def test_add_package_with_system_dependency(self):
@@ -470,7 +470,7 @@ class PackageEnvironmentTests(unittest.TestCase):
         self.assertIn("system_dep_pkg", package_names, "System dependency package missing from environment")
 
     # Skip if Docker is not available
-    @integration_test
+    @integration_test(scope="service")
     @slow_test
     @unittest.skipUnless(DOCKER_DAEMON_AVAILABLE, "Docker dependency test skipped due to Docker not being available")
     def test_add_package_with_docker_dependency(self):

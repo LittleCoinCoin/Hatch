@@ -76,7 +76,7 @@ class RegistryRetrieverTests(unittest.TestCase):
         self.assertEqual(sim_retriever.registry_cache_path, self.local_registry_path)
         self.assertTrue(sim_retriever.registry_url.startswith("file://"))
 
-    @integration_test
+    @integration_test(scope="component")
     def test_registry_cache_management(self):
         """Test registry cache management."""
         # Initialize retriever with a short TTL in online mode
@@ -120,7 +120,7 @@ class RegistryRetrieverTests(unittest.TestCase):
         self.assertIsNotNone(registry_data4)
         self.assertIn("repositories", registry_data4)
         self.assertIn("last_updated", registry_data4)
-    @integration_test
+    @integration_test(scope="service")
     def test_online_mode(self):
         """Test registry retriever in online mode."""
         # Initialize in online mode

@@ -540,7 +540,7 @@ class TestSystemInstallerIntegration(unittest.TestCase):
 
         
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     def test_validate_real_system_dependency(self):
         """Test validation with real system dependency from dummy package."""
@@ -553,7 +553,7 @@ class TestSystemInstallerIntegration(unittest.TestCase):
 
         self.assertTrue(self.installer.validate_dependency(dependency))
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     @patch.object(SystemInstaller, '_is_platform_supported')
     @patch.object(SystemInstaller, '_is_apt_available')
@@ -571,7 +571,7 @@ class TestSystemInstallerIntegration(unittest.TestCase):
 
         self.assertTrue(self.installer.can_install(dependency))
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
     def test_simulate_curl_installation(self):
@@ -592,7 +592,7 @@ class TestSystemInstallerIntegration(unittest.TestCase):
             self.assertEqual(result.status, InstallationStatus.COMPLETED)
             self.assertTrue(result.metadata["simulation"])
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     def test_get_installation_info(self):
         """Test getting installation info for system dependency."""
@@ -610,7 +610,7 @@ class TestSystemInstallerIntegration(unittest.TestCase):
             self.assertEqual(info["dependency_name"], "curl")
             self.assertTrue(info["supported"])
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
     def test_install_real_dependency(self):
@@ -627,7 +627,7 @@ class TestSystemInstallerIntegration(unittest.TestCase):
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
         self.assertTrue(result.metadata["automated"])
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
     def test_install_integration_with_real_subprocess(self):
@@ -660,7 +660,7 @@ class TestSystemInstallerIntegration(unittest.TestCase):
         self.assertEqual(result.metadata["package_manager"], "apt")
         self.assertTrue(result.metadata["automated"])
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
     def test_run_apt_subprocess_direct_integration(self):
@@ -690,7 +690,7 @@ class TestSystemInstallerIntegration(unittest.TestCase):
         # Should return 0 even for non-existent package (apt-cache policy doesn't fail)
         self.assertEqual(returncode, 0)
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
     def test_install_with_version_constraint_integration(self):
@@ -717,7 +717,7 @@ class TestSystemInstallerIntegration(unittest.TestCase):
         # Check that the command includes the version constraint
         self.assertIn("curl", result.metadata["command_simulated"])
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     @unittest.skipIf(sys.platform.startswith("win"), "System dependency test skipped on Windows")
     def test_error_handling_in_run_apt_subprocess(self):

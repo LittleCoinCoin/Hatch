@@ -371,7 +371,7 @@ class TestPythonEnvironmentManagerIntegration(unittest.TestCase):
         
         shutil.rmtree(cls.temp_dir, ignore_errors=True)
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     def test_conda_mamba_detection_real(self):
         """Test real conda/mamba detection on the system."""
@@ -391,7 +391,7 @@ class TestPythonEnvironmentManagerIntegration(unittest.TestCase):
         self.assertIsNotNone(manager_info["platform"])
         self.assertIsNotNone(manager_info["python_version"])
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     def test_manager_diagnostics_real(self):
         """Test real manager diagnostics."""
@@ -413,7 +413,7 @@ class TestPythonEnvironmentManagerIntegration(unittest.TestCase):
             self.assertIn("mamba_works", diagnostics)
             self.assertIn("mamba_version", diagnostics)
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     def test_create_and_remove_python_environment_real(self):
         """Test real Python environment creation and removal."""
@@ -449,7 +449,7 @@ class TestPythonEnvironmentManagerIntegration(unittest.TestCase):
         # Verify environment no longer exists
         self.assertFalse(self.manager.environment_exists(env_name))
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     def test_create_python_environment_with_version_real(self):
         """Test real Python environment creation with specific version."""
@@ -480,7 +480,7 @@ class TestPythonEnvironmentManagerIntegration(unittest.TestCase):
         # Cleanup
         self.manager.remove_python_environment(env_name)
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     def test_environment_diagnostics_real(self):
         """Test real environment diagnostics."""
@@ -512,7 +512,7 @@ class TestPythonEnvironmentManagerIntegration(unittest.TestCase):
         # Cleanup
         self.manager.remove_python_environment(env_name)
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     def test_force_recreation_real(self):
         """Test force recreation of existing environment."""
@@ -546,7 +546,7 @@ class TestPythonEnvironmentManagerIntegration(unittest.TestCase):
         # Cleanup
         self.manager.remove_python_environment(env_name)
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     def test_list_environments_real(self):
         """Test listing environments with real conda environments."""
@@ -573,7 +573,7 @@ class TestPythonEnvironmentManagerIntegration(unittest.TestCase):
         for env_name in test_envs:
             self.manager.remove_python_environment(env_name)
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     @unittest.skipIf(
         not (Path("/usr/bin/python3.12").exists() or Path("/usr/bin/python3.9").exists()),
@@ -615,7 +615,7 @@ class TestPythonEnvironmentManagerIntegration(unittest.TestCase):
                 except Exception:
                     pass  # Best effort cleanup
 
-    @integration_test
+    @integration_test(scope="system")
     @slow_test
     def test_error_handling_real(self):
         """Test error handling with real operations."""

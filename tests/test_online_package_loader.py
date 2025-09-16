@@ -59,7 +59,7 @@ class OnlinePackageLoaderTests(unittest.TestCase):
         # Remove temporary directory
         shutil.rmtree(self.temp_dir)
     
-    @integration_test
+    @integration_test(scope="service")
     @slow_test
     def test_download_package_online(self):
         """Test downloading a package from online registry."""
@@ -103,7 +103,7 @@ class OnlinePackageLoaderTests(unittest.TestCase):
     #         except Exception as e:
     #             logger.warning(f"Couldn't download {package_name}@{version}: {e}")
     
-    @integration_test
+    @integration_test(scope="service")
     @slow_test
     def test_install_and_caching(self):
         """Test installing and caching a package."""
@@ -147,7 +147,7 @@ class OnlinePackageLoaderTests(unittest.TestCase):
         except Exception as e:
             self.fail(f"Package installation raised exception: {e}")
     
-    @integration_test
+    @integration_test(scope="service")
     @slow_test
     def test_cache_reuse(self):
         """Test that the cache is reused for multiple installs."""
