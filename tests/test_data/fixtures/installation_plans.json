@@ -1,0 +1,69 @@
+{
+  "basic_python_plan": {
+    "dependencies_to_install": {
+      "python_dependencies": [{"name": "requests", "version": ">=2.0.0"}],
+      "hatch_dependencies": [],
+      "system_dependencies": [],
+      "docker_dependencies": []
+    },
+    "satisfied_dependencies": {
+      "python_dependencies": [],
+      "hatch_dependencies": [],
+      "system_dependencies": [],
+      "docker_dependencies": []
+    }
+  },
+  "mixed_dependency_plan": {
+    "dependencies_to_install": {
+      "python_dependencies": [{"name": "requests", "version": ">=2.0.0"}],
+      "hatch_dependencies": [{"name": "base_pkg", "version": ">=1.0.0"}],
+      "system_dependencies": [{"name": "curl", "version": ">=7.0.0"}],
+      "docker_dependencies": []
+    },
+    "satisfied_dependencies": {
+      "python_dependencies": [{"name": "numpy", "version": "1.21.0"}],
+      "hatch_dependencies": [],
+      "system_dependencies": [],
+      "docker_dependencies": []
+    }
+  },
+  "empty_plan": {
+    "dependencies_to_install": {
+      "python_dependencies": [],
+      "hatch_dependencies": [],
+      "system_dependencies": [],
+      "docker_dependencies": []
+    },
+    "satisfied_dependencies": {
+      "python_dependencies": [],
+      "hatch_dependencies": [],
+      "system_dependencies": [],
+      "docker_dependencies": []
+    }
+  },
+  "complex_plan": {
+    "dependencies_to_install": {
+      "python_dependencies": [
+        {"name": "requests", "version": ">=2.0.0"},
+        {"name": "click", "version": ">=8.0.0"}
+      ],
+      "hatch_dependencies": [
+        {"name": "base_pkg", "version": ">=1.0.0"},
+        {"name": "utility_pkg", "version": ">=2.0.0"}
+      ],
+      "system_dependencies": [
+        {"name": "curl", "version": ">=7.0.0"},
+        {"name": "git", "version": ">=2.0.0"}
+      ],
+      "docker_dependencies": [
+        {"name": "nginx", "version": "latest"}
+      ]
+    },
+    "satisfied_dependencies": {
+      "python_dependencies": [{"name": "numpy", "version": "1.21.0"}],
+      "hatch_dependencies": [{"name": "existing_pkg", "version": "1.0.0"}],
+      "system_dependencies": [{"name": "vim", "version": "8.2"}],
+      "docker_dependencies": []
+    }
+  }
+}

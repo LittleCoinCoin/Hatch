@@ -1,0 +1,68 @@
+{
+  "environment_variables": {
+    "valid_values": ["1", "true", "yes", "TRUE", "YES", "True"],
+    "invalid_values": ["0", "false", "no", "invalid", "maybe", ""],
+    "test_scenarios": [
+      {
+        "name": "numeric_true",
+        "value": "1",
+        "expected": true
+      },
+      {
+        "name": "string_true_lowercase",
+        "value": "true",
+        "expected": true
+      },
+      {
+        "name": "string_true_uppercase",
+        "value": "TRUE",
+        "expected": true
+      },
+      {
+        "name": "string_yes_lowercase",
+        "value": "yes",
+        "expected": true
+      },
+      {
+        "name": "string_yes_uppercase",
+        "value": "YES",
+        "expected": true
+      },
+      {
+        "name": "mixed_case",
+        "value": "True",
+        "expected": true
+      },
+      {
+        "name": "invalid_value",
+        "value": "invalid",
+        "expected": false
+      },
+      {
+        "name": "empty_value",
+        "value": "",
+        "expected": false
+      }
+    ]
+  },
+  "tty_scenarios": {
+    "interactive": {
+      "isatty": true,
+      "description": "Standard terminal environment"
+    },
+    "non_interactive": {
+      "isatty": false,
+      "description": "CI/CD pipeline or Docker container"
+    }
+  },
+  "user_input_scenarios": {
+    "approve_responses": ["y", "yes", "Y", "YES", "Yes"],
+    "deny_responses": ["n", "no", "N", "NO", "No", ""],
+    "invalid_responses": ["maybe", "sure", "ok", "1", "0", "invalid"],
+    "error_scenarios": ["EOFError", "KeyboardInterrupt"]
+  },
+  "logging_messages": {
+    "auto_approve": "Auto-approving installation (non-interactive mode)",
+    "user_cancelled": "Installation cancelled by user"
+  }
+}

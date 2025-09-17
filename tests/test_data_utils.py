@@ -6,7 +6,7 @@ All dynamic package generation has been removed in favor of static packages.
 
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 
 class TestDataLoader:
@@ -121,6 +121,71 @@ class TestDataLoader:
         response_path = self.responses_dir / f"{response_name}.json"
         with open(response_path, 'w') as f:
             json.dump(response, f, indent=2)
+
+    def load_fixture(self, fixture_name: str) -> Dict[str, Any]:
+        """Load a test fixture file.
+
+        Args:
+            fixture_name: Name of the fixture file (without .json extension)
+
+        Returns:
+            Loaded fixture as a dictionary
+        """
+        fixtures_dir = self.test_data_dir / "fixtures"
+        fixture_path = fixtures_dir / f"{fixture_name}.json"
+        with open(fixture_path, 'r') as f:
+            return json.load(f)
+
+
+class NonTTYTestDataLoader(TestDataLoader):
+    """Specialized test data loader for non-TTY handling tests."""
+
+    def get_installation_plan(self, plan_name: str) -> Dict[str, Any]:
+        """Load standardized installation plan data.
+
+        Args:
+            plan_name: Name of the installation plan to load
+
+        Returns:
+            Installation plan dictionary
+        """
+        plans = self.load_fixture("installation_plans")
+        return plans.get(plan_name, plans["basic_python_plan"])
+
+    def get_non_tty_config(self) -> Dict[str, Any]:
+        """Load non-TTY test configuration.
+
+        Returns:
+            Non-TTY test configuration dictionary
+        """
+        return self.load_config("non_tty_test_config")
+
+    def get_environment_variable_scenarios(self) -> List[Dict[str, Any]]:
+        """Get environment variable test scenarios.
+
+        Returns:
+            List of environment variable test scenarios
+        """
+        config = self.get_non_tty_config()
+        return config["environment_variables"]["test_scenarios"]
+
+    def get_user_input_scenarios(self) -> Dict[str, List[str]]:
+        """Get user input test scenarios.
+
+        Returns:
+            Dictionary of user input scenarios
+        """
+        config = self.get_non_tty_config()
+        return config["user_input_scenarios"]
+
+    def get_logging_messages(self) -> Dict[str, str]:
+        """Get expected logging messages.
+
+        Returns:
+            Dictionary of expected logging messages
+        """
+        config = self.get_non_tty_config()
+        return config["logging_messages"]
 
 
 # Global instance for easy access
