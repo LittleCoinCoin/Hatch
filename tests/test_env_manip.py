@@ -4,8 +4,10 @@ import unittest
 import logging
 import tempfile
 import shutil
+import os
 from pathlib import Path
 from datetime import datetime
+from unittest.mock import patch
 
 from wobble.decorators import regression_test, integration_test, slow_test
 
@@ -890,6 +892,100 @@ class PackageEnvironmentTests(unittest.TestCase):
             self.env_manager.python_env_manager.create_python_environment = original_create
             self.env_manager.python_env_manager.get_environment_info = original_get_info
             self.env_manager._install_hatch_mcp_server = original_install
+
+    # Non-TTY Handling Backward Compatibility Tests
+
+    @regression_test
+    @patch('sys.stdin.isatty', return_value=False)
+    def test_add_package_non_tty_auto_approve(self, mock_isatty):
+        """Test package addition in non-TTY environment (backward compatibility)."""
+        # Create environment
+        self.env_manager.create_environment("test_env", "Test environment", create_python_env=False)
+
+        # Test existing auto_approve=True behavior is preserved
+        from test_data_utils import TestDataLoader
+        test_loader = TestDataLoader()
+        base_pkg_path = test_loader.packages_dir / "basic" / "base_pkg"
+
+        if not base_pkg_path.exists():
+            self.skipTest(f"Test package not found: {base_pkg_path}")
+
+        result = self.env_manager.add_package_to_environment(
+            str(base_pkg_path),
+            "test_env",
+            auto_approve=False  # Should auto-approve due to non-TTY detection
+        )
+
+        self.assertTrue(result, "Non-TTY environment should auto-approve even with auto_approve=False")
+        mock_isatty.assert_called()  # Verify TTY detection was called
+
+    @regression_test
+    @patch.dict(os.environ, {'HATCH_AUTO_APPROVE': '1'})
+    def test_add_package_environment_variable_compatibility(self):
+        """Test new environment variable doesn't break existing workflows."""
+        # Verify existing auto_approve=False behavior with environment variable
+        self.env_manager.create_environment("test_env", "Test environment", create_python_env=False)
+
+        from test_data_utils import TestDataLoader
+        test_loader = TestDataLoader()
+        base_pkg_path = test_loader.packages_dir / "basic" / "base_pkg"
+
+        if not base_pkg_path.exists():
+            self.skipTest(f"Test package not found: {base_pkg_path}")
+
+        result = self.env_manager.add_package_to_environment(
+            str(base_pkg_path),
+            "test_env",
+            auto_approve=False  # Should be overridden by environment variable
+        )
+
+        self.assertTrue(result, "Environment variable should enable auto-approval")
+
+    @regression_test
+    @patch('sys.stdin.isatty', return_value=False)
+    def test_add_package_with_dependencies_non_tty(self, mock_isatty):
+        """Test package with dependencies in non-TTY environment."""
+        # Create environment
+        self.env_manager.create_environment("test_env", "Test environment", create_python_env=False)
+
+        from test_data_utils import TestDataLoader
+        test_loader = TestDataLoader()
+
+        # Test with a package that has dependencies
+        simple_pkg_path = test_loader.packages_dir / "dependencies" / "simple_dep_pkg"
+
+        if not simple_pkg_path.exists():
+            self.skipTest(f"Test package not found: {simple_pkg_path}")
+
+        result = self.env_manager.add_package_to_environment(
+            str(simple_pkg_path),
+            "test_env",
+            auto_approve=False  # Should auto-approve due to non-TTY
+        )
+
+        self.assertTrue(result, "Package with dependencies should install in non-TTY")
+        mock_isatty.assert_called()
+
+    @regression_test
+    @patch.dict(os.environ, {'HATCH_AUTO_APPROVE': 'yes'})
+    def test_environment_variable_case_variations(self):
+        """Test environment variable with different case variations."""
+        self.env_manager.create_environment("test_env", "Test environment", create_python_env=False)
+
+        from test_data_utils import TestDataLoader
+        test_loader = TestDataLoader()
+        base_pkg_path = test_loader.packages_dir / "basic" / "base_pkg"
+
+        if not base_pkg_path.exists():
+            self.skipTest(f"Test package not found: {base_pkg_path}")
+
+        result = self.env_manager.add_package_to_environment(
+            str(base_pkg_path),
+            "test_env",
+            auto_approve=False
+        )
+
+        self.assertTrue(result, "Environment variable 'yes' should enable auto-approval")
 
 if __name__ == "__main__":
     unittest.main()
