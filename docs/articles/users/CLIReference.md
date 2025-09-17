@@ -234,6 +234,8 @@ Syntax:
 | `--refresh-registry`, `-r` | flag | Refresh registry metadata before resolving | false |
 | `--auto-approve` | flag | Automatically approve dependency installation prompts | false |
 
+**Note:** Dependency installation prompts are also automatically approved in non-TTY environments (such as CI/CD pipelines) or when the `HATCH_AUTO_APPROVE` environment variable is set. See [Environment Variables](#environment-variables) for details.
+
 Examples:
 
 `hatch package add ./my_package`
@@ -266,6 +268,42 @@ Syntax:
 | `--env`, `-e` | string | Hatch environment name (defaults to current) | current environment |
 
 Output: each package row includes name, version, hatch compliance flag, source URI and installation location.
+
+---
+
+## Environment Variables
+
+Hatch recognizes the following environment variables to control behavior:
+
+| Variable | Description | Accepted Values | Default |
+|----------|-------------|-----------------|---------|
+| `HATCH_AUTO_APPROVE` | Automatically approve dependency installation prompts in non-interactive environments | `1`, `true`, `yes` (case-insensitive) | unset |
+
+### `HATCH_AUTO_APPROVE`
+
+When set to a truthy value (`1`, `true`, or `yes`, case-insensitive), this environment variable enables automatic approval of dependency installation prompts. This is particularly useful in CI/CD pipelines and other automated environments where user interaction is not possible.
+
+**Behavior:**
+
+- In TTY environments: User is still prompted for consent unless this variable is set
+- In non-TTY environments: Installation is automatically approved regardless of this variable
+- When set in any environment: Installation is automatically approved without prompting
+
+**Examples:**
+
+```bash
+# Enable auto-approval for the current session
+export HATCH_AUTO_APPROVE=1
+hatch package add my_package
+
+# Enable auto-approval for a single command
+HATCH_AUTO_APPROVE=true hatch package add my_package
+
+# CI/CD pipeline usage
+HATCH_AUTO_APPROVE=yes hatch package add production_package
+```
+
+**Note:** This environment variable works in conjunction with the `--auto-approve` CLI flag. Either method will enable automatic approval of installation prompts.
 
 ---
 
