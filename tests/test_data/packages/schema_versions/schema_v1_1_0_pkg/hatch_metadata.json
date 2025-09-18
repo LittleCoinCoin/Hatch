@@ -1,0 +1,29 @@
+{
+  "package_schema_version": "1.1.0",
+  "name": "schema_v1_1_0_pkg",
+  "version": "1.0.0",
+  "description": "Test package: schema_v1_1_0_pkg",
+  "tags": [
+    "test",
+    "hatch",
+    "mcp"
+  ],
+  "author": {
+    "name": "Test Suite",
+    "email": "test@crackingshells.com"
+  },
+  "license": {
+    "name": "MIT",
+    "uri": "https://opensource.org/licenses/MIT"
+  },
+  "entry_point": "main.py",
+  "hatch_dependencies": [
+    {
+      "name": "base_pkg",
+      "type": {
+        "type": "remote"
+      },
+      "version_constraint": ">=1.0.0"
+    }
+  ]
+}

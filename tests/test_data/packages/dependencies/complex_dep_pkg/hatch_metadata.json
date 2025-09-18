@@ -1,0 +1,41 @@
+{
+  "package_schema_version": "1.2.1",
+  "name": "complex_dep_pkg",
+  "version": "1.0.0",
+  "description": "Test package: complex_dep_pkg",
+  "tags": [
+    "test",
+    "hatch",
+    "mcp"
+  ],
+  "author": {
+    "name": "Test Suite",
+    "email": "test@crackingshells.com"
+  },
+  "license": {
+    "name": "MIT",
+    "uri": "https://opensource.org/licenses/MIT"
+  },
+  "entry_point": {
+    "mcp_server": "mcp_server.py",
+    "hatch_mcp_server": "hatch_mcp_server.py"
+  },
+  "tools": [
+    {
+      "name": "complex_dep_pkg_tool",
+      "description": "Example tool for complex_dep_pkg"
+    }
+  ],
+  "dependencies": {
+    "hatch": [
+      {
+        "name": "base_pkg",
+        "version_constraint": ">=1.0.0"
+      },
+      {
+        "name": "utility_pkg",
+        "version_constraint": ">=1.0.0"
+      }
+    ]
+  }
+}

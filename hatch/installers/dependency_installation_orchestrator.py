@@ -8,6 +8,8 @@ and delegation to specific installers.
 import json
 import logging
 import datetime
+import sys
+import os
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 
@@ -488,23 +490,34 @@ class DependencyInstallerOrchestrator:
         print("="*60)
 
     def _request_user_consent(self, install_plan: Dict[str, Any]) -> bool:
-        """Request user consent for the installation plan.
-        
+        """Request user consent for the installation plan with non-TTY support.
+
         Args:
             install_plan (Dict[str, Any]): Complete installation plan.
-            
+
         Returns:
             bool: True if user approves, False otherwise.
-        """        
-        # Request confirmation
-        while True:
-            response = input("\nProceed with installation? [y/N]: ").strip().lower()
-            if response in ['y', 'yes']:
-                return True
-            elif response in ['n', 'no', '']:
-                return False
-            else:
-                print("Please enter 'y' for yes or 'n' for no.")
+        """
+        # Check for non-interactive mode indicators
+        if (not sys.stdin.isatty() or
+            os.getenv('HATCH_AUTO_APPROVE', '').lower() in ('1', 'true', 'yes')):
+
+            self.logger.info("Auto-approving installation (non-interactive mode)")
+            return True
+
+        # Interactive mode - request user input
+        try:
+            while True:
+                response = input("\nProceed with installation? [y/N]: ").strip().lower()
+                if response in ['y', 'yes']:
+                    return True
+                elif response in ['n', 'no', '']:
+                    return False
+                else:
+                    print("Please enter 'y' for yes or 'n' for no.")
+        except (EOFError, KeyboardInterrupt):
+            self.logger.info("Installation cancelled by user")
+            return False
 
     def _execute_install_plan(self, 
                             install_plan: Dict[str, Any], 

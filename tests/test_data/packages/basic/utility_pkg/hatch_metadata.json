@@ -1,0 +1,29 @@
+{
+  "package_schema_version": "1.2.1",
+  "name": "utility_pkg",
+  "version": "1.0.0",
+  "description": "Test package: utility_pkg",
+  "tags": [
+    "test",
+    "hatch",
+    "mcp"
+  ],
+  "author": {
+    "name": "Test Suite",
+    "email": "test@crackingshells.com"
+  },
+  "license": {
+    "name": "MIT",
+    "uri": "https://opensource.org/licenses/MIT"
+  },
+  "entry_point": {
+    "mcp_server": "mcp_server.py",
+    "hatch_mcp_server": "hatch_mcp_server.py"
+  },
+  "tools": [
+    {
+      "name": "utility_pkg_tool",
+      "description": "Example tool for utility_pkg"
+    }
+  ]
+}

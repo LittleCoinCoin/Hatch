@@ -1,0 +1,51 @@
+{
+  "package_schema_version": "1.2.1",
+  "name": "mixed_dep_pkg",
+  "version": "1.0.0",
+  "description": "Test package: mixed_dep_pkg",
+  "tags": [
+    "test",
+    "hatch",
+    "mcp"
+  ],
+  "author": {
+    "name": "Test Suite",
+    "email": "test@crackingshells.com"
+  },
+  "license": {
+    "name": "MIT",
+    "uri": "https://opensource.org/licenses/MIT"
+  },
+  "entry_point": {
+    "mcp_server": "mcp_server.py",
+    "hatch_mcp_server": "hatch_mcp_server.py"
+  },
+  "tools": [
+    {
+      "name": "mixed_dep_pkg_tool",
+      "description": "Example tool for mixed_dep_pkg"
+    }
+  ],
+  "dependencies": {
+    "hatch": [
+      {
+        "name": "base_pkg",
+        "version_constraint": ">=1.0.0"
+      }
+    ],
+    "python": [
+      {
+        "name": "requests",
+        "version_constraint": ">=2.25.0",
+        "package_manager": "pip"
+      }
+    ],
+    "system": [
+      {
+        "name": "git",
+        "version_constraint": ">=2.0.0",
+        "package_manager": "apt"
+      }
+    ]
+  }
+}

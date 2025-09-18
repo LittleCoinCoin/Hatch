@@ -6,6 +6,9 @@ import sys
 from pathlib import Path
 from unittest import mock
 
+# Import wobble decorators for test categorization
+from wobble.decorators import regression_test, integration_test, slow_test
+
 from hatch.installers.python_installer import PythonInstaller
 from hatch.installers.installation_context import InstallationContext, InstallationStatus
 from hatch.installers.installer_base import InstallationError
@@ -44,31 +47,37 @@ class TestPythonInstaller(unittest.TestCase):
         """Clean up the temporary directory after each test."""
         shutil.rmtree(self.temp_dir)
 
+    @regression_test
     def test_validate_dependency_valid(self):
         """Test validate_dependency returns True for valid dependency dict."""
         dep = {"name": "requests", "version_constraint": ">=2.0.0"}
         self.assertTrue(self.installer.validate_dependency(dep))
 
+    @regression_test
     def test_validate_dependency_invalid_missing_fields(self):
         """Test validate_dependency returns False if required fields are missing."""
         dep = {"name": "requests"}
         self.assertFalse(self.installer.validate_dependency(dep))
 
+    @regression_test
     def test_validate_dependency_invalid_package_manager(self):
         """Test validate_dependency returns False for unsupported package manager."""
         dep = {"name": "requests", "version_constraint": ">=2.0.0", "package_manager": "unknown"}
         self.assertFalse(self.installer.validate_dependency(dep))
 
+    @regression_test
     def test_can_install_python_type(self):
         """Test can_install returns True for type 'python'."""
         dep = {"type": self.installer.installer_type}
         self.assertTrue(self.installer.can_install(dep))
 
+    @regression_test
     def test_can_install_wrong_type(self):
         """Test can_install returns False for non-python type."""
         dep = {"type": "hatch"}
         self.assertFalse(self.installer.can_install(dep))
 
+    @regression_test
     @mock.patch("hatch.installers.python_installer.subprocess.Popen", side_effect=Exception("fail"))
     def test_run_pip_subprocess_exception(self, mock_popen):
         """Test _run_pip_subprocess raises InstallationError on exception."""
@@ -76,6 +85,7 @@ class TestPythonInstaller(unittest.TestCase):
         with self.assertRaises(InstallationError):
             self.installer._run_pip_subprocess(cmd)
 
+    @regression_test
     def test_install_simulation_mode(self):
         """Test install returns COMPLETED immediately in simulation mode."""
         dep = {"name": "requests", "version_constraint": ">=2.0.0"}
@@ -83,6 +93,7 @@ class TestPythonInstaller(unittest.TestCase):
         result = self.installer.install(dep, context)
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
 
+    @regression_test
     @mock.patch.object(PythonInstaller, "_run_pip_subprocess", return_value=0)
     def test_install_success(self, mock_run):
         """Test install returns COMPLETED on successful pip install."""
@@ -91,6 +102,7 @@ class TestPythonInstaller(unittest.TestCase):
         result = self.installer.install(dep, context)
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
 
+    @regression_test
     @mock.patch.object(PythonInstaller, "_run_pip_subprocess", return_value=1)
     def test_install_failure(self, mock_run):
         """Test install raises InstallationError on pip failure."""
@@ -99,6 +111,7 @@ class TestPythonInstaller(unittest.TestCase):
         with self.assertRaises(InstallationError):
             self.installer.install(dep, context)
 
+    @regression_test
     @mock.patch.object(PythonInstaller, "_run_pip_subprocess", return_value=0)
     def test_uninstall_success(self, mock_run):
         """Test uninstall returns COMPLETED on successful pip uninstall."""
@@ -107,6 +120,7 @@ class TestPythonInstaller(unittest.TestCase):
         result = self.installer.uninstall(dep, context)
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
 
+    @regression_test
     @mock.patch.object(PythonInstaller, "_run_pip_subprocess", return_value=1)
     def test_uninstall_failure(self, mock_run):
         """Test uninstall raises InstallationError on pip uninstall failure."""
@@ -147,6 +161,8 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         """Clean up the temporary directory after each test."""
         shutil.rmtree(self.temp_dir)
 
+    @integration_test(scope="component")
+    @slow_test
     def test_install_actual_package_success(self):
         """Test actual installation of a real Python package without mocking.
         
@@ -173,9 +189,11 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
         self.assertIn("wheel", result.dependency_name)
 
+    @integration_test(scope="component")
+    @slow_test
     def test_install_package_with_version_constraint(self):
         """Test installation with specific version constraint.
-        
+
         Validates that version constraints are properly passed to pip
         and that the installation succeeds with real package resolution.
         """
@@ -197,6 +215,8 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         # Verify the dependency was processed correctly
         self.assertIsNotNone(result.metadata)
 
+    @integration_test(scope="component")
+    @slow_test
     def test_install_package_with_extras(self):
         """Test installation of a package with extras specification.
         
@@ -219,6 +239,8 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         result = self.installer.install(dep, context)
         self.assertEqual(result.status, InstallationStatus.COMPLETED)
 
+    @integration_test(scope="component")
+    @slow_test
     def test_uninstall_actual_package(self):
         """Test actual uninstallation of a Python package.
         
@@ -246,6 +268,8 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         uninstall_result = self.installer.uninstall(dep, context)
         self.assertEqual(uninstall_result.status, InstallationStatus.COMPLETED)
 
+    @integration_test(scope="component")
+    @slow_test
     def test_install_nonexistent_package_failure(self):
         """Test that installation fails appropriately for non-existent packages.
         
@@ -272,6 +296,8 @@ class TestPythonInstallerIntegration(unittest.TestCase):
         error_msg = str(cm.exception)
         self.assertIn("this-package-definitely-does-not-exist-12345", error_msg)
 
+    @integration_test(scope="component")
+    @slow_test
     def test_get_installation_info_for_installed_package(self):
         """Test retrieval of installation info for an actually installed package.
         
