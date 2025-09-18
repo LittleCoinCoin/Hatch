@@ -1,4 +1,4 @@
-## [0.7.0](https://github.com/CrackingShells/Hatch/compare/v0.6.2...v0.7.0) (2025-09-18)
+## [0.6.3](https://github.com/CrackingShells/Hatch/compare/v0.6.2...v0.6.3) (2025-09-18)
 
 
 ### Features
@@ -40,7 +40,7 @@
 * eliminate redundant dynamic test package generation ([f497c09](https://github.com/CrackingShells/Hatch/commit/f497c0997e7ae2a3cdf417848f533e42dbf323fd))
 * remove sys.path.insert statements from test files ([41c291e](https://github.com/CrackingShells/Hatch/commit/41c291ee9da12d70f1f16a0eebef32cb9bd11444))
 
-## [0.7.0-dev.1](https://github.com/CrackingShells/Hatch/compare/v0.6.2...v0.7.0-dev.1) (2025-09-18)
+## [0.6.3-dev.1](https://github.com/CrackingShells/Hatch/compare/v0.6.2...v0.6.3-dev.1) (2025-09-18)
 
 
 ### Features
