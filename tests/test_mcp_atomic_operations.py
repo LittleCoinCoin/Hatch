@@ -14,7 +14,7 @@ from unittest.mock import patch, mock_open
 from wobble.decorators import regression_test
 from test_data_utils import MCPBackupTestDataLoader
 
-from hatch.mcp.backup import (
+from hatch.mcp_host_config.backup import (
     AtomicFileOperations, 
     MCPHostConfigBackupManager,
     BackupAwareOperation,

@@ -15,7 +15,7 @@ from unittest.mock import Mock, patch
 from wobble.decorators import integration_test, slow_test, regression_test
 from test_data_utils import MCPBackupTestDataLoader
 
-from hatch.mcp.backup import (
+from hatch.mcp_host_config.backup import (
     MCPHostConfigBackupManager, 
     BackupAwareOperation,
     BackupInfo,
