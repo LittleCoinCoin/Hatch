@@ -187,10 +187,59 @@ class NonTTYTestDataLoader(TestDataLoader):
         config = self.get_non_tty_config()
         return config["logging_messages"]
 
+class MCPBackupTestDataLoader(TestDataLoader):
+    """Specialized test data loader for MCP backup system tests."""
+
+    def __init__(self):
+        super().__init__()
+        self.mcp_backup_configs_dir = self.configs_dir / "mcp_backup_test_configs"
+        self.mcp_backup_configs_dir.mkdir(exist_ok=True)
+
+    def load_host_agnostic_config(self, config_type: str) -> Dict[str, Any]:
+        """Load host-agnostic test configuration.
+
+        Args:
+            config_type: Type of configuration to load
+
+        Returns:
+            Host-agnostic configuration dictionary
+        """
+        config_path = self.mcp_backup_configs_dir / f"{config_type}.json"
+        if not config_path.exists():
+            self._create_default_mcp_config(config_type)
+
+        with open(config_path, 'r') as f:
+            return json.load(f)
+
+    def _create_default_mcp_config(self, config_type: str):
+        """Create default host-agnostic MCP configuration."""
+        default_configs = {
+            "simple_server": {
+                "servers": {
+                    "test_server": {
+                        "command": "python",
+                        "args": ["server.py"]
+                    }
+                }
+            },
+            "complex_server": {
+                "servers": {
+                    "server1": {"command": "python", "args": ["server1.py"]},
+                    "server2": {"command": "node", "args": ["server2.js"]},
+                    "server3": {"command": "python", "args": ["server3.py"], "env": {"API_KEY": "test"}}
+                }
+            },
+            "empty_config": {"servers": {}}
+        }
+
+        config = default_configs.get(config_type, {"servers": {}})
+        config_path = self.mcp_backup_configs_dir / f"{config_type}.json"
+        with open(config_path, 'w') as f:
+            json.dump(config, f, indent=2)
+
 
 # Global instance for easy access
 test_data = TestDataLoader()
-
 
 # Convenience functions
 def load_test_config(config_name: str) -> Dict[str, Any]:
