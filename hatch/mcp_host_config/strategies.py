@@ -298,38 +298,63 @@ class LMStudioHostStrategy(CursorBasedHostStrategy):
 
 @register_host_strategy(MCPHostType.VSCODE)
 class VSCodeHostStrategy(MCPHostStrategy):
-    """Configuration strategy for VS Code MCP extension."""
-    
+    """Configuration strategy for VS Code MCP extension with user-wide mcp support."""
+
     def get_config_path(self) -> Optional[Path]:
-        """Get VS Code configuration path."""
-        return Path.cwd() / ".vscode" / "settings.json"
-    
+        """Get VS Code user mcp configuration path (cross-platform)."""
+        try:
+            system = platform.system()
+            if system == "Windows":
+                # Windows: %APPDATA%\Code\User\mcp.json
+                appdata = Path.home() / "AppData" / "Roaming"
+                return appdata / "Code" / "User" / "mcp.json"
+            elif system == "Darwin":  # macOS
+                # macOS: $HOME/Library/Application Support/Code/User/mcp.json
+                return Path.home() / "Library" / "Application Support" / "Code" / "User" / "mcp.json"
+            elif system == "Linux":
+                # Linux: $HOME/.config/Code/User/mcp.json
+                return Path.home() / ".config" / "Code" / "User" / "mcp.json"
+            else:
+                logger.warning(f"Unsupported platform for VS Code: {system}")
+                return None
+        except Exception as e:
+            logger.error(f"Failed to determine VS Code user mcp path: {e}")
+            return None
+
     def get_config_key(self) -> str:
-        """VS Code uses nested configuration structure."""
-        return "mcp.servers"  # VS Code specific nested key
-    
+        """VS Code uses direct servers configuration structure."""
+        return "servers"  # VS Code specific direct key
+
     def is_host_available(self) -> bool:
-        """Check if VS Code workspace exists."""
-        vscode_dir = Path.cwd() / ".vscode"
-        return vscode_dir.exists()
-    
+        """Check if VS Code is installed by checking for user directory."""
+        try:
+            config_path = self.get_config_path()
+            if not config_path:
+                return False
+
+            # Check if VS Code user directory exists (indicates VS Code installation)
+            user_dir = config_path.parent
+            return user_dir.exists()
+        except Exception:
+            return False
+
     def validate_server_config(self, server_config: MCPServerConfig) -> bool:
         """VS Code validation - flexible path handling."""
         return server_config.command is not None or server_config.url is not None
     
     def read_configuration(self) -> HostConfiguration:
-        """Read VS Code settings.json configuration."""
+        """Read VS Code mcp.json configuration."""
         config_path = self.get_config_path()
         if not config_path or not config_path.exists():
             return HostConfiguration()
-        
+
         try:
             with open(config_path, 'r') as f:
                 config_data = json.load(f)
-            
-            # Extract MCP servers from nested structure
-            mcp_servers = config_data.get("mcp", {}).get("servers", {})
-            
+
+            # Extract MCP servers from direct structure
+            mcp_servers = config_data.get(self.get_config_key(), {})
+
             # Convert to MCPServerConfig objects
             servers = {}
             for name, server_data in mcp_servers.items():
@@ -338,24 +363,24 @@ class VSCodeHostStrategy(MCPHostStrategy):
                 except Exception as e:
                     logger.warning(f"Invalid server config for {name}: {e}")
                     continue
-            
+
             return HostConfiguration(servers=servers)
-            
+
         except Exception as e:
             logger.error(f"Failed to read VS Code configuration: {e}")
             return HostConfiguration()
     
     def write_configuration(self, config: HostConfiguration, no_backup: bool = False) -> bool:
-        """Write VS Code settings.json configuration."""
+        """Write VS Code mcp.json configuration."""
         config_path = self.get_config_path()
         if not config_path:
             return False
-        
+
         try:
             # Ensure parent directory exists
             config_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Read existing configuration
+
+            # Read existing configuration to preserve non-MCP settings
             existing_config = {}
             if config_path.exists():
                 try:
@@ -363,25 +388,23 @@ class VSCodeHostStrategy(MCPHostStrategy):
                         existing_config = json.load(f)
                 except Exception:
                     pass
-            
+
             # Convert MCPServerConfig objects to dict
             servers_dict = {}
             for name, server_config in config.servers.items():
                 servers_dict[name] = server_config.model_dump(exclude_none=True)
-            
-            # Update nested configuration structure
-            if "mcp" not in existing_config:
-                existing_config["mcp"] = {}
-            existing_config["mcp"]["servers"] = servers_dict
-            
+
+            # Update configuration with new servers (preserves non-MCP settings)
+            existing_config[self.get_config_key()] = servers_dict
+
             # Write atomically
             temp_path = config_path.with_suffix('.tmp')
             with open(temp_path, 'w') as f:
                 json.dump(existing_config, f, indent=2)
-            
+
             temp_path.replace(config_path)
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to write VS Code configuration: {e}")
             return False
@@ -444,12 +467,12 @@ class GeminiHostStrategy(MCPHostStrategy):
         config_path = self.get_config_path()
         if not config_path:
             return False
-        
+
         try:
             # Ensure parent directory exists
             config_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Read existing configuration to preserve other settings
+
+            # Read existing configuration to preserve non-MCP settings
             existing_config = {}
             if config_path.exists():
                 try:
@@ -457,16 +480,14 @@ class GeminiHostStrategy(MCPHostStrategy):
                         existing_config = json.load(f)
                 except Exception:
                     pass
-            
-            # Preserve existing servers and add/update new ones
-            existing_servers = existing_config.get(self.get_config_key(), {})
 
-            # Convert MCPServerConfig objects to dict and merge with existing
+            # Convert MCPServerConfig objects to dict (REPLACE, don't merge)
+            servers_dict = {}
             for name, server_config in config.servers.items():
-                existing_servers[name] = server_config.model_dump(exclude_none=True)
+                servers_dict[name] = server_config.model_dump(exclude_none=True)
 
-            # Update configuration with merged servers
-            existing_config[self.get_config_key()] = existing_servers
+            # Update configuration with new servers (preserves non-MCP settings)
+            existing_config[self.get_config_key()] = servers_dict
             
             # Write atomically with enhanced error handling
             temp_path = config_path.with_suffix('.tmp')
