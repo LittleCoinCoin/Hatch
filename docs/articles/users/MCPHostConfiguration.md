@@ -22,6 +22,16 @@ Hatch currently supports configuration for these MCP host platforms:
 - **LM Studio** - Local language model interface
 - **Gemini** - Google's AI development environment
 
+## Hands-on Learning
+
+For step-by-step guidance on MCP host configuration, see the comprehensive tutorial series:
+
+- [Tutorial: Host Platform Overview](tutorials/04-mcp-host-configuration/01-host-platform-overview.md) - Understanding host platforms and deployment approaches
+- [Tutorial: Configuring Hatch Packages](tutorials/04-mcp-host-configuration/02-configuring-hatch-packages.md) - **Preferred deployment method** with automatic dependency resolution
+- [Tutorial: Configuring Arbitrary Servers](tutorials/04-mcp-host-configuration/03-configuring-arbitrary-servers.md) - Advanced method for non-Hatch servers
+- [Tutorial: Environment Synchronization](tutorials/04-mcp-host-configuration/04-environment-synchronization.md) - Cross-environment deployment workflows
+- [Tutorial: Advanced Synchronization](tutorials/04-mcp-host-configuration/05-advanced-synchronization.md) - Enterprise patterns and automation
+
 ## Basic Usage
 
 ### Configure a Server
@@ -47,11 +57,14 @@ hatch mcp configure api-service \
 View servers configured on a specific host:
 
 ```bash
-# List servers on Claude Desktop
-hatch mcp list --host claude-desktop
+# List available host platforms
+hatch mcp list hosts
 
-# List servers on all available hosts
-hatch mcp list --all-hosts
+# List configured servers from current environment
+hatch mcp list servers
+
+# List servers from specific environment
+hatch mcp list servers --env production
 ```
 
 ### Remove a Server
@@ -60,13 +73,23 @@ Remove an MCP server from a host:
 
 ```bash
 # Remove server from specific host
-hatch mcp remove weather-server --host claude-desktop
+hatch mcp remove server weather-server --host claude-desktop
 
 # Remove server from all hosts
-hatch mcp remove weather-server --all-hosts
+hatch mcp remove server weather-server --host all
+
+# Remove entire host configuration
+hatch mcp remove host claude-desktop
 ```
 
 ## Configuration Types
+
+**Important**: Each server must be configured as either local (using `--command`) or remote (using `--url`), but not both. These options are mutually exclusive:
+
+- **Local servers**: Use `--command` and optionally `--args` and `--env`
+- **Remote servers**: Use `--url` and optionally `--headers`
+
+Attempting to use both `--command` and `--url` will result in an error.
 
 ### Local Servers
 
@@ -134,7 +157,7 @@ hatch mcp configure weather-server \
 
 ### Advanced Synchronization
 
-Hatch provides comprehensive synchronization capabilities for managing MCP configurations across environments and hosts. For detailed information, see [Synchronization Commands](MCP/synchronization_commands.md).
+Hatch provides comprehensive synchronization capabilities for managing MCP configurations across environments and hosts. For hands-on learning, see [Tutorial: Environment Synchronization](tutorials/04-mcp-host-configuration/04-environment-synchronization.md) and [Tutorial: Advanced Synchronization](tutorials/04-mcp-host-configuration/05-advanced-synchronization.md).
 
 #### Quick Examples
 
@@ -375,3 +398,114 @@ hatch mcp configure prod-server --host claude-desktop --command python --args pr
 ```
 
 This ensures that MCP server configurations are isolated between different project environments, maintaining clean separation of development, testing, and production setups.
+
+## Advanced Synchronization Patterns
+
+### Pattern-Based Server Selection
+
+Use regular expressions for flexible server selection during synchronization:
+
+```bash
+# All API servers
+hatch mcp sync --from-env my_hatch_env --to-host claude-desktop --pattern ".*api.*"
+
+# Development tools
+hatch mcp sync --from-env my_hatch_env --to-host cursor --pattern "^dev-"
+
+# Production servers
+hatch mcp sync --from-host production-host --to-host staging-host --pattern ".*prod.*"
+```
+
+### Multi-Host Batch Operations
+
+Efficiently manage configurations across multiple host platforms:
+
+```bash
+# Replicate configuration across all hosts
+hatch mcp sync --from-host claude-desktop --to-host all
+
+# Selective multi-host deployment
+hatch mcp sync --from-env production --to-host claude-desktop,cursor,vscode
+
+# Environment-specific multi-host sync
+hatch mcp sync --from-env development --to-host all --pattern "^dev-"
+```
+
+### Complex Filtering Scenarios
+
+Combine filtering options for precise control:
+
+```bash
+# Multiple specific servers
+hatch mcp sync --from-env my_hatch_env --to-host all --servers api-server,db-server,cache-server
+
+# Pattern-based with host filtering
+hatch mcp sync --from-host claude-desktop --to-host cursor --pattern ".*tool.*"
+```
+
+## Management Operations
+
+### Server Removal Workflows
+
+Remove MCP servers from host configurations with safety features:
+
+```bash
+# Remove from single host
+hatch mcp remove server <server_name> --host <host-name>
+
+# Remove from multiple hosts
+hatch mcp remove server <server_name> --host <host1>,<host2>,<host3>
+
+# Remove from all configured hosts
+hatch mcp remove server <server_name> --host all
+```
+
+### Host Configuration Management
+
+Complete host configuration removal and management:
+
+```bash
+# Remove all MCP configuration for a host
+hatch mcp remove host <host-name>
+
+# Remove with environment specification
+hatch mcp remove server <server_name> --host <host> --env <environment>
+```
+
+### Safety and Backup Features
+
+All management operations include comprehensive safety features:
+
+**Automatic Backup Creation**:
+```bash
+# Backup created automatically
+hatch mcp remove server test-server --host claude-desktop
+# Output: Backup created: ~/.hatch/mcp_backups/claude-desktop_20231201_143022.json
+```
+
+**Dry-Run Mode**:
+```bash
+# Preview changes without executing
+hatch mcp remove server test-server --host claude-desktop --dry-run
+hatch mcp sync --from-env prod --to-host all --dry-run
+```
+
+**Skip Backup (Advanced)**:
+```bash
+# Skip backup creation (use with caution)
+hatch mcp remove server test-server --host claude-desktop --no-backup
+```
+
+### Host Validation and Error Handling
+
+The system validates host names against available MCP host types:
+- `claude-desktop`
+- `cursor`
+- `vscode`
+- `lmstudio`
+- `gemini`
+- Additional hosts as configured
+
+Invalid host names result in clear error messages with available options listed.
+
+For complete command syntax and all available options, see [CLI Reference](CLIReference.md#mcp-commands).
